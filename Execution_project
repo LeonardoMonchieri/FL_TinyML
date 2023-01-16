@@ -1,0 +1,4 @@
+msbuild 	->to build the prj
+cd bin/Debug/	->to go to the foler where the Exe is build
+mono TinyML.exe ->to execute the compiler
+

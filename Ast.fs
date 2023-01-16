@@ -24,7 +24,7 @@ let unexpected_error fmt = throw_formatted UnexpectedError fmt
 
 type tyvar = int
 
-type ty =
+type ty = //rappresents type(\tau)
     | TyName of string
     | TyArrow of ty * ty
     | TyVar of tyvar

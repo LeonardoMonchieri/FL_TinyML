@@ -39,10 +39,25 @@ let gamma0 = [
 
 ]
 
+let freevars_schema_env env =
+    List fold(fun r (_, schema)-> r + freevars_scheme sch) Set.empty env
+
 // TODO for exam
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
-    failwith "not implemented"
-
+    match e with
+    |   Lit (LInt _)        -> TyInt, []
+    |   Lit (LBool _)       -> TyBool, []
+    |   Lit (LFloat _)      -> TyFloat, []
+    |   Lit (LString _)     ->  TyString, []
+    |   Lit (LChar _)       -> TyChar, []
+    |   Lit LUnit           -> LUnit, []
+    |   Let (x, tyo, e1, e2)-> 
+            let t1, t2 = typeinfer_expr env e1
+            let tvs = freevars_ty t1 - freevars_schema_env env
+            let sch = Forall (tvs, t1)
+            //Unifcation
+            let t2, s2= typeinfer_expr((x, sch) :: env) e2
+            t2, compose_subst s2 s1
 
 // type checker
 //

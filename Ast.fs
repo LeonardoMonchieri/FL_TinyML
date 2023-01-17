@@ -51,9 +51,9 @@ let (|TyBool|_|) = (|TyLit|_|) "bool"
 let (|TyUnit|_|) = (|TyLit|_|) "unit"
 
 
-type scheme = Forall of tyvar list * ty
+type scheme = Forall of tyvar list * ty //type schema
 
-type lit = LInt of int
+type lit = LInt of int          //litterals 
          | LFloat of float
          | LString of string
          | LChar of char
@@ -64,12 +64,7 @@ type binding = bool * string * ty option * expr    // (is_recursive, id, optiona
 
 
 
-//fun pippo -> pippo + 1
-
-
-
-
-and expr = 
+and expr =  //Expression supported by the language
     | Lit of lit
     | Lambda of string * ty option * expr
     | App of expr * expr

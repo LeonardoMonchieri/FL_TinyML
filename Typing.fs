@@ -45,19 +45,44 @@ let freevars_schema_env env =
 // TODO for exam
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     match e with
-    |   Lit (LInt _)        -> TyInt, []
-    |   Lit (LBool _)       -> TyBool, []
-    |   Lit (LFloat _)      -> TyFloat, []
-    |   Lit (LString _)     ->  TyString, []
-    |   Lit (LChar _)       -> TyChar, []
-    |   Lit LUnit           -> LUnit, []
-    |   Let (x, tyo, e1, e2)-> 
+    |   Lit (LInt _)        -> TyInt, []        //const Int
+    |   Lit (LBool _)       -> TyBool, []       //const Bool
+    |   Lit (LFloat _)      -> TyFloat, []      //const Float
+    |   Lit (LString _)     ->  TyString, []    //const String
+    |   Lit (LChar _)       -> TyChar, []       //const Char
+    |   Lit LUnit           -> LUnit, []        //Luni
+    |   Var x->                                 //Var
+    |   Lambda (x, Some t1, e) ->               //Lambda
+    |   App (e1, e2) ->                         //App 
+    |   Let (x, tyo, e1, e2)->                  //Let
             let t1, t2 = typeinfer_expr env e1
             let tvs = freevars_ty t1 - freevars_schema_env env
             let sch = Forall (tvs, t1)
             //Unifcation
             let t2, s2= typeinfer_expr((x, sch) :: env) e2
             t2, compose_subst s2 s1
+    |   IfThenElse (e1, e2, e3o) ->             //IfThenElse
+            let t1, t2 = 
+    |   Tuple  es->                             //Tuple
+            
+    |   LetRec (f, _, e1, e2) ->                //Let rec
+    |   BinOp (e1, "+", e2) ->                  //BinOp +      
+    |   BinOp (e1, "-", e2) ->                  //BinOp -
+    |   BinOp (e1, "*", e2) ->                  //BinOp *
+    |   BinOp (e1, "/", e2) ->                  //BinOp /    
+    |   BinOp (e1, "%", e2) ->                  //BinOp %
+    |   BinOp (e1, "<", e2) ->                  //BinOp <
+    |   BinOp (e1, "<=", e2) ->                 //BinOp <=    
+    |   BinOp (e1, "==", e2) ->                 //BinOp ==
+    |   BinOp (e1, ">=", e2) ->                 //BinOp >=
+    |   BinOp (e1, ">", e2) ->                  //BinOp > 
+    |   BinOp (e1, "<>", e2) ->                 //BinOp <>
+    |   BinOp (e1, "and", e2) ->                //BinOp and
+    |   BinOp (e1, "or", e2) ->                 //BinOp or    
+    |   UnOp ("not", e) ->                      //UnOp not
+    |   UnOp ("-", e) ->                        //UnOp -
+    |   
+
 
 // type checker
 //

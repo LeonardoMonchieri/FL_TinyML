@@ -49,18 +49,48 @@ let rec eval_expr (env : value env) (e : expr) : value =
     | LetRec (f, _, e1, e2) -> 
         let v1 = eval_expr env e1
         match v1 with
-        | Closure (venv1, x, e) -> RecClosure (venv1, f, x, e)
+        //| Closure (venv1, x, e) -> RecClosure (venv1, f, x, e)
+        //We need to procede in the recursion step 
+        | Closure (venv1, x, e) -> 
+            let rec_clsr = RecClosure (venv1, f, x, e)
+            eval_expr ((f, rec_clsr) :: env) e2
+        //End fo the recursion 
+        | v-> v
         | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
-        // TODO finish this implementation
+        // TODO finish this implementation 
+        //CHECKED
+    | BinOp (e1, op, e2) ->
+        match op with
+        | "+" -> aritm_binop (+) (+) env e1 e2
+        | "-" -> aritm_binop (-) (-) env e1 e2
+        | "*" -> aritm_binop ( * ) ( * ) env e1 e2
+        // TODO: implement other binary ops
+        | "/" -> aritm_binop (/) (/) env e1 e2
+        | "%" -> aritm_binop (%) (%) env e1 e2
+        | ">" -> comp_binop (>) (>) env e1 e2
+        | ">=" -> binop (>=) (>=) env e1 e2
+        | "==" -> binop (==) (==) env e1 e2
+        | "<=" -> binop (<=) (<=) env e1 e2
+        | "<" -> binop (<) (<) env e1 e2
+        | "<>" -> binop (<>) (<>) env e1 e2
+        | "and" -> bool_binop (&&) (&&) env e1 e2
+        | "or" -> bool_binop (||) (||) env e1 e2
+        | _ -> unexpected_error "eval_expr: unsupported expression: %s [AST: %A]" (pretty_expr e) e
+    
 
-    | BinOp (e1, "+", e2) -> binop (+) (+) env e1 e2
-    | BinOp (e1, "-", e2) -> binop (-) (-) env e1 e2
-    | BinOp (e1, "*", e2) -> binop ( * ) ( * ) env e1 e2
-    // TODO: implement other binary ops
 
-    | _ -> unexpected_error "eval_expr: unsupported expression: %s [AST: %A]" (pretty_expr e) e
+    //ADD UNIOP
+    | UniOp(op, e) ->
+        let v = eval_expr env e 
+        match op with
+        | "not" ->
+            match v with
+        | "-"   -> uniop (-) env e1
+        | _->unexpected_error "eval_expre: unsoppreted expression: %s [AST: %A]" (pretty_expr e) e
 
-and binop op_int op_float env e1 e2 =
+
+//Arithmetic operators
+and aritm_binop op_int op_float env e1 e2 =
     let v1 = eval_expr env e1
     let v2 = eval_expr env e2
     match v1, v2 with
@@ -68,4 +98,16 @@ and binop op_int op_float env e1 e2 =
     | VLit (LFloat x), VLit (LFloat y) -> VLit (LFloat (op_float x y))
     | VLit (LInt x), VLit (LFloat y) -> VLit (LFloat (op_float (float x) y))
     | VLit (LFloat x), VLit (LInt y) -> VLit (LFloat (op_float x (float y)))
-    | _ -> unexpected_error "eval_expr: illegal operands in binary operator (+): %s + %s" (pretty_value v1) (pretty_value v2)
+    | _ -> unexpected_error "eval_expr: illegal operands in binary operator: %s %s %s" (pretty_value v1) ("add op") (pretty_value v2)
+//Comparison operators
+and comp_binop op env e1 e2=
+
+//Boolean operators
+and bool_binop op_bool env e1 e2 =
+    let v1 = eval_expr env e1
+    let v2 = eval_expr env e2
+    match v1, v2 with
+    | VBool (LBool x), VBool (LBool y) -> VBool (LBool (op_bool x y))
+    | _ -> unexpected_error "eval_expr: illegal operands in binary operator: %s %s %s" (pretty_value v1) ("add op") (pretty_value v2)
+
+

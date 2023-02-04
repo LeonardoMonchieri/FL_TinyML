@@ -24,6 +24,7 @@ let unexpected_error fmt = throw_formatted UnexpectedError fmt
 
 type tyvar = int
 
+//τ
 type ty = //rappresents type(\tau)
     | TyName of string
     | TyArrow of ty * ty
@@ -51,6 +52,7 @@ let (|TyBool|_|) = (|TyLit|_|) "bool"
 let (|TyUnit|_|) = (|TyLit|_|) "unit"
 
 
+//σ
 type scheme = Forall of tyvar list * ty //type schema
 
 type lit = LInt of int          //litterals 

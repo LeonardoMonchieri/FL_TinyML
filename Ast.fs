@@ -26,10 +26,10 @@ type tyvar = int
 
 //τ
 type ty = //rappresents type(\tau)
-    | TyName of string
-    | TyArrow of ty * ty
-    | TyVar of tyvar
-    | TyTuple of ty list
+    | TyName of string      //type constructor
+    | TyArrow of ty * ty    //arrow type    
+    | TyVar of tyvar        //type variables
+    | TyTuple of ty list    //tuple type
 
 // pseudo data constructors for literal types
 let TyFloat = TyName "float"
@@ -55,6 +55,7 @@ let (|TyUnit|_|) = (|TyLit|_|) "unit"
 //σ
 type scheme = Forall of tyvar list * ty //type schema
 
+//L
 type lit = LInt of int          //litterals 
          | LFloat of float
          | LString of string
@@ -65,17 +66,18 @@ type lit = LInt of int          //litterals
 type binding = bool * string * ty option * expr    // (is_recursive, id, optional_type_annotation, expression)
 
 
-
+//e
 and expr =  //Expression supported by the language
-    | Lit of lit
-    | Lambda of string * ty option * expr
-    | App of expr * expr
-    | Var of string
-    | LetIn of binding * expr
-    | IfThenElse of expr * expr * expr option
-    | Tuple of expr list
-    | BinOp of expr * string * expr
-    | UnOp of string * expr
+    | Lit of lit                                //Litterals
+    | Lambda of string * ty option * expr       //Lambda abstraction
+    | App of expr * expr                        //Application
+    | Var of string                             //Var identifier
+    | LetIn of binding * expr                   //Let Bindinf
+    | IfThenElse of expr * expr * expr option   //Conditional
+    | Tuple of expr list                        //Tuple
+    | BinOp of expr * string * expr             //Binary operation
+    | UnOp of string * expr                     //Unary operation
+
 
 let fold_params parms e0 = 
     List.foldBack (fun (id, tyo) e -> Lambda (id, tyo, e)) parms e0

@@ -14,12 +14,28 @@ type subst = (tyvar * ty) list
 // TODO implement this
 let unify (t1 : ty) (t2 : ty) : subst = []
 
-// TODO implement this
-let apply_subst (t : ty) (s : subst) : ty = t
+// TODO implement this 
+//CHECKED
+let rec apply_subst (t : ty) (s : subst) : ty =
+    match t with
+    | TyName _ -> t
+    | TyArrow (t1, t2) -> TyArrow(apply_subst t1 s, apply_subst t2 s)
+    | TyVar tv ->
+        try
+            let _,sub_t = s|>List.find(fun(x,_)->x = tv) 
+            sub_t
+        with
+            | :? System.Collections.Generic.KeyNotFoundException -> t
+    | TyTuple ts -> TyTuple(List.map(fun t-> apply_subst t s) ts)
 
 // TODO implement this
-let compose_subst (s1 : subst) (s2 : subst) : subst = s1 @ s2
-
+let compose_subst (s1 : subst) (s2 : subst) : subst = 
+    if(List.exist2 (fun (tv1,_) (tv2,_)-> tv1 = tv2) s1 s2) then
+        //Scorro s1 e uso find su s2
+        //Esiste controllo il tipo
+        //Non esiste aggiungo
+        
+    s1 @ s2
 let rec freevars_ty (t : ty) : tyvar Set =
     match t with
     | TyName _ -> Set.empty
@@ -40,7 +56,7 @@ let gamma0 = [
 ]
 
 let freevars_schema_env env =
-    List fold(fun r (_, schema)-> r + freevars_scheme sch) Set.empty env
+    List.fold(fun r (_, sch) -> r + freevars_scheme sch) Set.empty env
 
 // TODO for exam
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
@@ -50,17 +66,18 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     |   Lit (LFloat _)      -> TyFloat, []      //const Float
     |   Lit (LString _)     ->  TyString, []    //const String
     |   Lit (LChar _)       -> TyChar, []       //const Char
-    |   Lit LUnit           -> LUnit, []        //Luni
-    |   Var x->                                 //Var
-    |   Lambda (x, Some t1, e) ->               //Lambda
-    |   App (e1, e2) ->                         //App 
+    |   Lit LUnit           -> TyUnit, []        //Luni
+    //|   Var x->                                 //Var
+    //|   Lambda (x, Some t1, e) ->               //Lambda
+    //|   App (e1, e2) ->                         //App 
     |   Let (x, tyo, e1, e2)->                  //Let
-            let t1, t2 = typeinfer_expr env e1
+            let t1, s1 = typeinfer_expr env e1
             let tvs = freevars_ty t1 - freevars_schema_env env
             let sch = Forall (tvs, t1)
             //Unifcation
             let t2, s2= typeinfer_expr((x, sch) :: env) e2
             t2, compose_subst s2 s1
+    (*
     |   IfThenElse (e1, e2, e3o) ->             //IfThenElse
             let t1, t2 = 
     |   Tuple  es->                             //Tuple
@@ -82,7 +99,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     |   UnOp ("not", e) ->                      //UnOp not
     |   UnOp ("-", e) ->                        //UnOp -
     |   
-
+    *)
 
 // type checker
 //

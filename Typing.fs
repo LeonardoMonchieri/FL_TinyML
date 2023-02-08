@@ -31,7 +31,8 @@ let rec apply_subst (t : ty) (s : subst) : ty =
 exception SubstitutionError of string
 
 // TODO implement this
-let compose_subst (s1 : subst) (s2 : subst) : subst = 
+//CHECKED
+let compose_subst (s1 : subst) (s2 : subst) : subst = (*
     let sDis s = List.fold( fun  (sCom : subst) (tv1, t1)->
             //Looking if s1 share some tvar with s2
             match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
@@ -42,6 +43,27 @@ let compose_subst (s1 : subst) (s2 : subst) : subst =
                 //If there is no match simply add to the accumulator list
                 | None -> (tv1,t1)::sCom) [] s
     (sDis s1)@s2
+    *)
+
+    s1 |> List.iter(fun (tv1, t1)->
+        match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
+            | Some (_, t2)-> 
+                if( t1 <> t2 ) then raise (SubstitutionError("Undisjoined set"))
+            | None-> ())
+
+(*
+    let rec chk_disj s =
+        match s with
+        | []->()
+        | (tv1,t1)::s_tail-> 
+            match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
+                | Some (_, t2)-> 
+                    if( t1 <> t2 ) then raise (SubstitutionError("Undisjoined set"))
+                | None-> ()
+            iter s_tail
+    chk_disj 
+    *)
+    s1@s2
         
         //Esiste controllo il tipo
         //Non esiste aggiungo

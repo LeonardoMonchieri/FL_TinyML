@@ -28,14 +28,24 @@ let rec apply_subst (t : ty) (s : subst) : ty =
             | :? System.Collections.Generic.KeyNotFoundException -> t
     | TyTuple ts -> TyTuple(List.map(fun t-> apply_subst t s) ts)
 
+exception SubstitutionError of string
+
 // TODO implement this
 let compose_subst (s1 : subst) (s2 : subst) : subst = 
-    if(List.exist2 (fun (tv1,_) (tv2,_)-> tv1 = tv2) s1 s2) then
-        //Scorro s1 e uso find su s2
+    let sDis s = List.fold( fun  (sCom : subst) (tv1, t1)->
+            //Looking if s1 share some tvar with s2
+            match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
+                | Some (_, t2)-> 
+                    //if they have the same type add to the partial composition otherwise rise an exception
+                    if( t1 = t2 ) then (tv1, t2)::sCom
+                    else raise (SubstitutionError("Undisjoined set"))
+                //If there is no match simply add to the accumulator list
+                | None -> (tv1,t1)::sCom) [] s
+    (sDis s1)@s2
+        
         //Esiste controllo il tipo
         //Non esiste aggiungo
         
-    s1 @ s2
 let rec freevars_ty (t : ty) : tyvar Set =
     match t with
     | TyName _ -> Set.empty

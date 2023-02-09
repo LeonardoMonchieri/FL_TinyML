@@ -9,10 +9,12 @@ open Ast
 
 let type_error fmt = throw_formatted TypeError fmt
 
+exception SubstitutionError of string
+
+exception UnifyError of string
+
 type subst = (tyvar * ty) list
 
-// TODO implement this
-let unify (t1 : ty) (t2 : ty) : subst = []
 
 // TODO implement this 
 //CHECKED
@@ -28,7 +30,7 @@ let rec apply_subst (t : ty) (s : subst) : ty =
             | :? System.Collections.Generic.KeyNotFoundException -> t
     | TyTuple ts -> TyTuple(List.map(fun t-> apply_subst t s) ts)
 
-exception SubstitutionError of string
+
 
 // TODO implement this
 //CHECKED
@@ -67,7 +69,7 @@ let compose_subst (s1 : subst) (s2 : subst) : subst = (*
         
         //Esiste controllo il tipo
         //Non esiste aggiungo
-        
+
 let rec freevars_ty (t : ty) : tyvar Set =
     match t with
     | TyName _ -> Set.empty
@@ -89,6 +91,28 @@ let gamma0 = [
 
 let freevars_schema_env env =
     List.fold(fun r (_, sch) -> r + freevars_scheme sch) Set.empty env
+
+
+// TODO implement this
+//CHECKED
+let rec unify (t1 : ty) (t2 : ty) : subst = 
+    match t1, t2 with
+    | t1, t2 when t1=t2 -> []                                   //U
+    | TyName t1, TyName t2 when t1 = t2-> []                    //U(c1; c2)
+    | TyArrow (ta1,ta2), TyArrow (ta3,ta4)->                    //U(τ1->τ2; τ3->τ4)
+        compose_subst  (unify ta1 ta3) 
+                       (unify ta2 ta4)
+    | TyTuple tt1,TyTuple tt2 when tt1.Length = tt2.Length->    //U(τ1* ...* τn; τ1'* ...* τn')
+        let app subst (x,y) = compose_subst (unify (apply_subst x subst) 
+                                                   (apply_subst y subst)) subst
+        List.fold app []<| List.zip tt1 tt2
+    | TyVar tv1, tv2 when Set.contains tv1 <| freevars_ty tv2 ->
+        type_error "Unification error: unifying %d with %s requires infinite types"
+            tv1 (pretty_ty tv2)
+    | TyVar tv1, _->[(tv1,t2)]                                  //U(α; τ)
+    | _,TyVar _-> unify t2 t1                                   //U(τ; α)
+    | _, _-> raise(UnifyError("unification error: types '%s' and '%s' are not unifiable")) (pretty_ty t1)(pretty_ty t2)
+
 
 // TODO for exam
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =

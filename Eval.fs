@@ -87,7 +87,7 @@ let rec eval_expr (env: value env) (e: expr) : value =
             eval_expr ((f, rec_clsr) :: env) e2
         //End of the recursion
         | v -> v
-        | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
+     // | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
     // TODO finish this implementation
     //CHECKED
     | BinOp(e1, op, e2) ->

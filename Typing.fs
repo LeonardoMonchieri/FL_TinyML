@@ -13,11 +13,12 @@ exception SubstitutionError of string
 
 exception UnifyError of string
 
+//θ
 type subst = (tyvar * ty) list
 
-
 // TODO implement this 
-//CHECKED
+// CHECKED
+// θ(τ) -> τ
 let rec apply_subst (t : ty) (s : subst) : ty =
     match t with
     | TyName _ -> t
@@ -31,9 +32,9 @@ let rec apply_subst (t : ty) (s : subst) : ty =
     | TyTuple ts -> TyTuple(List.map(fun t-> apply_subst t s) ts)
 
 
-
+// θ1∘θ2 -> θ3
 // TODO implement this
-//CHECKED
+// CHECKED
 let compose_subst (s1 : subst) (s2 : subst) : subst = (*
     let sDis s = List.fold( fun  (sCom : subst) (tv1, t1)->
             //Looking if s1 share some tvar with s2
@@ -70,6 +71,14 @@ let compose_subst (s1 : subst) (s2 : subst) : subst = (*
         //Esiste controllo il tipo
         //Non esiste aggiungo
 
+//θ1(σ)-> θ2
+let apply_subst_in_scheme (Forall(tyvars, ty)) subst =
+    Forall(tyvars, apply_subst ty subst)
+//θ1(Γ)-> θ2
+let apply_subst_in_env env subst =
+    List.map(fun (id, schema) -> (id, apply_subst_in_scheme schema subst)) env
+    
+
 let rec freevars_ty (t : ty) : tyvar Set =
     match t with
     | TyName _ -> Set.empty
@@ -83,18 +92,12 @@ let freevars_scheme (Forall (tvs, t)) =
 // type inference
 //
 
-let gamma0 = [
-    ("+", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
-    ("-", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
-
-]
-
 let freevars_schema_env env =
     List.fold(fun r (_, sch) -> r + freevars_scheme sch) Set.empty env
 
 
 // TODO implement this
-//CHECKED
+// CHECKED
 let rec unify (t1 : ty) (t2 : ty) : subst = 
     match t1, t2 with
     | t1, t2 when t1=t2 -> []                                   //U
@@ -113,6 +116,45 @@ let rec unify (t1 : ty) (t2 : ty) : subst =
     | _,TyVar _-> unify t2 t1                                   //U(τ; α)
     | _, _-> raise(UnifyError("unification error: types '%s' and '%s' are not unifiable")) (pretty_ty t1)(pretty_ty t2)
 
+//Definenig an 'a as integer we can define in this way new type vars incrementing fv_num
+//ensuring it's unicity
+let mutable private fv_num = 0
+let fresh_var()=
+    let v = fv_num
+    fv_num<-fv_num + 1
+    TyVar v
+ 
+// Instantiation 
+// Given ∀ x . t(x)
+// refresh all x in t(x)
+let instantiate(Forall(tyvars, ty))=
+    let toRefresh = Set.intersect (freevars_ty ty) (Set tyvars)
+    let sub = List.map (fun v->v,fresh_var()) <| Set.toList toRefresh
+    apply_subst ty sub
+
+//Generalization
+// Given α make ∀ free(α) . α(free(α)) 
+let generalization env ty =
+    let free = freevars_ty ty
+    let scheme = Set.unionMany <| List.map (freevars_scheme << snd) env
+    Forall (Set.toList <| Set.difference free scheme, ty)
+
+
+let gamma0 = [
+    //Integer op
+    ("+", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a + 'a => int->int
+    ("-", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a - 'a => int->int
+    ("*", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a + 'a => int->int
+    ("/", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a - 'a => int->int
+    ("%", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a + 'a => int->int
+    //Flaota op
+    ("+", TyArrow (TyInt, TyArrow (TyFloat, TyFloat)))  //'b + 'b => float->float
+    ("-", TyArrow (TyInt, TyArrow (TyFloat, TyFloat))) 
+
+    
+]
+
+
 
 // TODO for exam
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
@@ -123,15 +165,47 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     |   Lit (LString _)     ->  TyString, []    //const String
     |   Lit (LChar _)       -> TyChar, []       //const Char
     |   Lit LUnit           -> TyUnit, []        //Luni
-    //|   Var x->                                 //Var
+    |   Var x->                                 //Var
+        match List.tryFind( fun(tv,_)-> tv = x ) env with
+            | Some (_, ty) -> instantiate ty,[]
+            | None  -> type_error "Undefined variable %s" x
+
     //|   Lambda (x, Some t1, e) ->               //Lambda
-    //|   App (e1, e2) ->                         //App 
+
+    |   App (e1, e2) ->                         //App
+        //Infer e1: Γ ⊦ e1:τ1 ⊳ θ1
+        let e1_ty, e1_subst = typeinfer_expr env e1 
+
+        //Infer e2 θ1(Γ) ⊦ e2:τ2 ⊳ θ2
+        let env  = apply_subst_in_env env e1_subst
+        let e2_ty, e2_subst = typeinfer_expr env e2
+        
+        //Update e1 with the new env
+        let e1_ty = apply_subst e1_ty e2_subst
+        
+        //Unify: U(τ1; τ2-> α) = θ3
+        let fv_ty = fresh_var()
+        let app_ty = TyArrow(e2_ty, fv_ty)
+        let subst_3 = unify e1_ty app_ty
+
+        //θ4 = θ3 ∘ θ2 
+        let subst_4 = compose_subst subst_3 e2_subst
+
+        //----------------------------------------
+        // Γ ⊦ e1 e2: τ ⊳ θ4
+        apply_subst fv_ty subst_4, subst_4
+
     |   Let (x, tyo, e1, e2)->                  //Let
+            //Infer e1 Γ ⊦ e1: τ1 ⊳ θ1
             let t1, s1 = typeinfer_expr env e1
-            let tvs = freevars_ty t1 - freevars_schema_env env
+            
+            // σ1 = gen^{θ1,Γ} (τ1)
+            let tvs = Set.toList(freevars_ty t1 - freevars_schema_env env)
             let sch = Forall (tvs, t1)
-            //Unifcation
+            
+            //Infer e2 θ1(Γ),(x,σ1) ⊦ e2:τ2 ⊳ θ2
             let t2, s2= typeinfer_expr((x, sch) :: env) e2
+            //Γ ⊦ let x=e1 in e2: τ2 ⊳ θ3 = θ2 ∘ θ1 
             t2, compose_subst s2 s1
     (*
     |   IfThenElse (e1, e2, e3o) ->             //IfThenElse

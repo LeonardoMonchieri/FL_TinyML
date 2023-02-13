@@ -234,20 +234,20 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             *)
     |   Tuple tp->                              //Tuple
         //Accumulator function to apply the substitution to all the elements inside the tuple
-        let acc_sub(env, subst, ty) tp =
+        let acc_sub(env, subst, ty) t =
             //θ(Γ)
             let env = apply_subst_in_env env subst
             // θ(Γ) ⊦ ei+1 : τi+1 ⊳ θi+1
-            let it_ty, it_subst = typeinfer_expr env it
+            let t_i, subst_i = typeinfer_expr env t
 
             //update accumulators
 
             //θi+1(τi)  ∀i<i+1
-            let ty = List.map (fun t -> apply_subst t it_subst) ty
+            let ty = List.map (fun t -> apply_subst t subst_i) ty
             //θ= θ ∘ θi+1
-            let subst = compose_subst it_subst subst
+            let subst = compose_subst subst_i subst
             
-            env, subst, ty @ [ it_ty ]
+            env, subst, ty @ [ t_i ]
 
         //Apply the substitutions to the tuple
         let _, subst, ty = List.fold acc_sub (env, [], []) tp

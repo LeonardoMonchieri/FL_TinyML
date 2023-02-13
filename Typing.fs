@@ -139,6 +139,9 @@ let generalization env ty =
     let scheme = Set.unionMany <| List.map (freevars_scheme << snd) env
     Forall (Set.toList <| Set.difference free scheme, ty)
 
+//Add to the env the x:∀ø.α
+let extend_env (name, ty) env=
+    (name, Forall ([], ty)) :: env
 
 let gamma0 = [
     //Integer op
@@ -170,8 +173,25 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             | Some (_, ty) -> instantiate ty,[]
             | None  -> type_error "Undefined variable %s" x
 
-    |   Lambda (x, Some t1, e) ->               //Lambda
-        
+    |   Lambda (args_name, t1, body) ->               //Lambda
+            //Infer t1
+            let args_ty = 
+                match t1 with 
+                    | Some t1 -> t1
+                    | None -> fresh_var() 
+            // extende the environment: Γ,(x:∀ø.α)
+            let env = extend_env (args_name, args_ty) env
+            
+            //expression e inference
+            //Γ,(x:∀ø.α) ⊢ e: τ_1; θ_1
+            let body_ty, body_subs = typeinfer_expr env body
+            
+            //Update t1 type with new subs
+            let args_ty = apply_subst args_ty body_subs
+
+            //--------------------------------------
+            //Γ ⊢ λx.e : α-> τ_1; θ_1
+            TyArrow(args_ty, body_ty), body_subs
 
     |   App (e1, e2) ->                         //App
         //Infer e1: Γ ⊦ e1:τ1 ⊳ θ1
@@ -211,8 +231,29 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     (*
     |   IfThenElse (e1, e2, e3o) ->             //IfThenElse
             let t1, t2 = 
-    |   Tuple tp es->                             //Tuple
+            *)
+    |   Tuple tp->                              //Tuple
+        //Accumulator function to apply the substitution to all the elements inside the tuple
+        let acc_sub(env, subst, ty) tp =
+            //θ(Γ)
+            let env = apply_subst_in_env env subst
+            // θ(Γ) ⊦ ei+1 : τi+1 ⊳ θi+1
+            let it_ty, it_subst = typeinfer_expr env it
+
+            //update accumulators
+
+            //θi+1(τi)  ∀i<i+1
+            let ty = List.map (fun t -> apply_subst t it_subst) ty
+            //θ= θ ∘ θi+1
+            let subst = compose_subst it_subst subst
             
+            env, subst, ty @ [ it_ty ]
+
+        //Apply the substitutions to the tuple
+        let _, subst, ty = List.fold acc_sub (env, [], []) tp
+        TyTuple ty, subst
+
+    (*
     |   LetRec (f, _, e1, e2) ->                //Let rec
     |   BinOp (e1, "+", e2) ->                  //BinOp +      
     |   BinOp (e1, "-", e2) ->                  //BinOp -

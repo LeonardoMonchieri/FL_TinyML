@@ -210,7 +210,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     (*
     |   IfThenElse (e1, e2, e3o) ->             //IfThenElse
             let t1, t2 = 
-    |   Tuple  es->                             //Tuple
+    |   Tuple tp es->                             //Tuple
             
     |   LetRec (f, _, e1, e2) ->                //Let rec
     |   BinOp (e1, "+", e2) ->                  //BinOp +      

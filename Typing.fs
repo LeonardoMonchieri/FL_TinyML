@@ -174,64 +174,92 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             | None  -> type_error "Undefined variable %s" x
 
     |   Lambda (args_name, t1, body) ->               //Lambda
-            //Infer t1
-            let args_ty = 
+            //If present infer t1 or let it a freevar
+            let args_ty =       
                 match t1 with 
                     | Some t1 -> t1
                     | None -> fresh_var() 
-            // extende the environment: Γ,(x:∀ø.α)
-            let env = extend_env (args_name, args_ty) env
-            
-            //expression e inference
-            //Γ,(x:∀ø.α) ⊢ e: τ_1; θ_1
-            let body_ty, body_subs = typeinfer_expr env body
-            
-            //Update t1 type with new subs
-            let args_ty = apply_subst args_ty body_subs
 
-            //--------------------------------------
-            //Γ ⊢ λx.e : α-> τ_1; θ_1
-            TyArrow(args_ty, body_ty), body_subs
+            // extend the environment
+            let env = extend_env (args_name, args_ty) env   //Γ,(x:∀ø.α)
+            
+            //infer expression e
+            let body_ty, body_subs = typeinfer_expr env body //Γ,(x:∀ø.α) ⊢ e: τ_1; θ_1
+
+            //Update t1 
+            let args_ty = apply_subst args_ty body_subs
+           
+            TyArrow(args_ty, body_ty), body_subs             //Γ ⊢ λx.e : α-> τ_1; θ_1
 
     |   App (e1, e2) ->                         //App
-        //Infer e1: Γ ⊦ e1:τ1 ⊳ θ1
-        let e1_ty, e1_subst = typeinfer_expr env e1 
+        //Infer e1
+        let e1_ty, e1_subst = typeinfer_expr env e1     // Γ ⊦ e1:τ1 ⊳ θ1 
 
-        //Infer e2 θ1(Γ) ⊦ e2:τ2 ⊳ θ2
-        let env  = apply_subst_in_env env e1_subst
-        let e2_ty, e2_subst = typeinfer_expr env e2
+        //Infer e2 
+        let env  = apply_subst_in_env env e1_subst      // θ1(Γ)
+        let e2_ty, e2_subst = typeinfer_expr env e2     // Γ ⊦ e2:τ2 ⊳ θ2
         
-        //Update e1 with the new env
-        let e1_ty = apply_subst e1_ty e2_subst
+        //Update e1
+        let e1_ty = apply_subst e1_ty e2_subst          
         
-        //Unify: U(τ1; τ2-> α) = θ3
+        //Unify
+                                                        // U(τ1; τ2-> α) = θ3
         let fv_ty = fresh_var()
         let app_ty = TyArrow(e2_ty, fv_ty)
         let subst_3 = unify e1_ty app_ty
 
-        //θ4 = θ3 ∘ θ2 
-        let subst_4 = compose_subst subst_3 e2_subst
+        //Compse the new subst
+        let subst_4 = compose_subst subst_3 e2_subst    // θ4 = θ3 ∘ θ2 
 
-        //----------------------------------------
-        // Γ ⊦ e1 e2: τ ⊳ θ4
-        apply_subst fv_ty subst_4, subst_4
+    
+        apply_subst fv_ty subst_4, subst_4              //Γ ⊦ e1 e2: τ ⊳ θ4
 
     |   Let (x, tyo, e1, e2)->                  //Let
-            //Infer e1 Γ ⊦ e1: τ1 ⊳ θ1
-            let t1, s1 = typeinfer_expr env e1
+            //Infer e1 
+            let t1, s1 = typeinfer_expr env e1              //Γ ⊦ e1: τ1 ⊳ θ1
             
-            // σ1 = gen^{θ1,Γ} (τ1)
+            //Create the type schema
+                                                            // σ1 = gen^{θ1,Γ} (τ1)
             let tvs = Set.toList(freevars_ty t1 - freevars_schema_env env)
             let sch = Forall (tvs, t1)
             
-            //Infer e2 θ1(Γ),(x,σ1) ⊦ e2:τ2 ⊳ θ2
-            let t2, s2= typeinfer_expr((x, sch) :: env) e2
-            //Γ ⊦ let x=e1 in e2: τ2 ⊳ θ3 = θ2 ∘ θ1 
-            t2, compose_subst s2 s1
-    (*
-    |   IfThenElse (e1, e2, e3o) ->             //IfThenElse
-            let t1, t2 = 
-            *)
+            //Infer e2 
+            let t2, s2= typeinfer_expr((x, sch) :: env) e2  //θ1(Γ),(x,σ1) ⊦ e2:τ2 ⊳ θ2
+            
+            t2, compose_subst s2 s1                         //Γ ⊦ let x=e1 in e2: τ2 ⊳ θ3 = θ2 ∘ θ1 
+    
+    |   IfThenElse (cond, thenBranch, o_elseBranch) ->             //IfThenEls
+         
+        //Infer guard type
+    
+        let cond_ty, cond_subst = typeinfer_expr env cond               //Γ ⊦ e1: τ1 ⊳ θ1 
+        let cond_subst= compose_subst cond_subst (unify cond_ty TyBool) // θ3 = θ1 ∘ U(τ1, bool)
+        let env = apply_subst_in_env env cond_subst                     // θ3(Γ)
+
+        //Infer type of then branch
+        let then_ty, then_subst = typeinfer_expr env thenBranch         // Γ ⊦ e2: τ2 ⊳ θ4 
+        let then_subst = compose_subst then_subst cond_subst            // θ5 = θ3 ∘ θ4 
+        let env = apply_subst_in_env env then_subst                     // θ5(Γ)
+            
+        //Check if we have an else branch
+        match o_elseBranch with
+            | Some o_elseBranch ->
+                //infer else branch type
+                let else_ty, else_subst = typeinfer_expr env o_elseBranch // Γ ⊦ e3: τ3 ⊳ θ6
+
+                //update then_ty
+                let then_ty = apply_subst then_ty else_subst             // θ7 = θ5 ∘ θ6
+
+                //get new subs                                           // θ8 = U( θ7(τ2) ∘ θ7(τ3))
+                let else_subst = compose_subst (unify else_ty then_ty) (compose_subst else_subst then_subst)
+
+                apply_subst then_ty else_subst, else_subst              // θ8(τ2), θ9 = θ7 ∘ θ8
+
+            | None ->
+                TyUnit, then_subst 
+
+
+
     |   Tuple tp->                              //Tuple
         //Accumulator function to apply the substitution to all the elements inside the tuple
         let acc_sub(env, subst, ty) t =

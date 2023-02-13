@@ -170,7 +170,8 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             | Some (_, ty) -> instantiate ty,[]
             | None  -> type_error "Undefined variable %s" x
 
-    //|   Lambda (x, Some t1, e) ->               //Lambda
+    |   Lambda (x, Some t1, e) ->               //Lambda
+        
 
     |   App (e1, e2) ->                         //App
         //Infer e1: Γ ⊦ e1:τ1 ⊳ θ1

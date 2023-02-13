@@ -54,7 +54,7 @@ let rec eval_expr (env: value env) (e: expr) : value =
         | _ -> unexpected_error "eval_expr: non-closure in left side of application: %s" (pretty_value v1)
     //Added Tuple evaluation
     | Tuple tv ->
-        VTuple <| List.map(eval_expr tyi) tv
+        VTuple <| List.map(eval_expr env) tv
 
     | IfThenElse(e1, e2, None) ->
         let v1 = eval_expr env e1

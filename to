@@ -1,0 +1,11 @@
+loading source file '-'...
+
+exception caught: System.IO.FileNotFoundException: Could not find file "/home/leonardomonchieri/Scrivania/UNIPD/I_I_Semestre/Functional Languages/TinyML/-"
+File name: '/home/leonardomonchieri/Scrivania/UNIPD/I_I_Semestre/Functional Languages/TinyML/-'
+  at System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize, System.Boolean anonymous, System.IO.FileOptions options) [0x0019e] in <de882a77e7c14f8ba5d298093dde82b2>:0 
+  at System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode) [0x00000] in <de882a77e7c14f8ba5d298093dde82b2>:0 
+  at (wrapper remoting-invoke-with-check) System.IO.FileStream..ctor(string,System.IO.FileMode)
+  at TinyML.Main+main_interpreter@38.Invoke (Microsoft.FSharp.Core.Unit unitVar0) [0x0001b] in <63ebf754de8d6072a745038354f7eb63>:0 
+  at TinyML.Main.trap (Microsoft.FSharp.Core.FSharpFunc`2[T,TResult] f) [0x001b0] in <63ebf754de8d6072a745038354f7eb63>:0 
+  at TinyML.Main.main_interpreter (System.String filename) [0x00006] in <63ebf754de8d6072a745038354f7eb63>:0 
+  at TinyML.Main.main (System.String[] argv) [0x00013] in <63ebf754de8d6072a745038354f7eb63>:0 

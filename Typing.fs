@@ -141,7 +141,7 @@ let generalization env ty =
 //Add to the env the x:∀ø.α
 let extend_env (name, ty) env=
     (name, Forall ([], ty)) :: env
-
+(*
 let gamma0 = [
     //Integer op
     ("+", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a + 'a => int->int
@@ -155,6 +155,43 @@ let gamma0 = [
 
     
 ]
+let binOps = List.fold( fun acc op->[    
+    (op, TyArrow (TyInt, TyArrow (TyInt, TyInt)))
+    (op, TyArrow (TyFloat, TyArrow (TyFloat, TyFloat)))
+    (op, TyArrow (TyInt, TyArrow (TyFloat, TyFloat)))
+    (op, TyArrow (TyFloat, TyArrow (TyFloat, TyInt)))]@acc) [] ["+"; "-"; "*"; "/"; "%"]
+
+*)
+
+
+let gamma0 = [
+    // binary int aritmetic operators
+    ("+", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
+    ("-", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
+    ("*", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
+    ("/", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
+    ("%", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
+
+    // binary comaprison operators
+    ("<", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
+    ("<=", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
+    (">", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
+    (">=", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
+    ("=", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
+    ("<>", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
+
+
+    // binary bool operators
+    ("and", TyArrow (TyBool, TyArrow(TyBool, TyBool)))
+    ("or", TyArrow (TyBool, TyArrow(TyBool, TyBool)))
+
+    // unary operators
+    ("not", TyArrow (TyBool, TyBool))
+    ("neg", TyArrow (TyInt, TyInt))
+    ("neg", TyArrow (TyFloat, TyFloat))   
+]
+
+let s_gamma0 = List.map (fun (x, y) -> (x, Forall([], y))) gamma0
 
 
 
@@ -262,24 +299,59 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     |   Tuple tp->                              //Tuple
         //Accumulator function to apply the substitution to all the elements inside the tuple
         let acc_sub(env, subst, ty) t =
-            //θ(Γ)
-            let env = apply_subst_in_env env subst
-            // θ(Γ) ⊦ ei+1 : τi+1 ⊳ θi+1
-            let t_i, subst_i = typeinfer_expr env t
+            
+            let env = apply_subst_in_env env subst                  // θ(Γ)
+            
+            let t_i, subst_i = typeinfer_expr env t                 // θ(Γ) ⊦ ei+1 : τi+1 ⊳ θi+1
 
             //update accumulators
-
-            //θi+1(τi)  ∀i<i+1
-            let ty = List.map (fun t -> apply_subst t subst_i) ty
-            //θ= θ ∘ θi+1
-            let subst = compose_subst subst_i subst
+            let ty = List.map (fun t -> apply_subst t subst_i) ty   // θi+1(τi)  ∀i<i+1
+           
+            let subst = compose_subst subst_i subst                 // θ= θ ∘ θi+1
             
             env, subst, ty @ [ t_i ]
 
         //Apply the substitutions to the tuple
         let _, subst, ty = List.fold acc_sub (env, [], []) tp
         TyTuple ty, subst
-//  |   LetRec (f, _, e1, e2) ->                //Let rec    
+
+    |   LetRec (f, tf, e1, e2) ->                //Let rec   
+                                                                            // (f:∀ø.α)
+        let fv_ty = fresh_var() 
+
+        let env = extend_env (f, fv_ty) env
+        
+        //infer e1
+        let ty_1, subst_1 = typeinfer_expr env e1                           // Γ, (f:∀ø.α) ⊦ e1: τ1 ⊳ θ1
+        (*
+        let tvs = Set.toList(freevars_ty ty_1 - freevars_schema_env env)    // σ1 = gen^{θ1,Γ} (τ1)
+        let sch = Forall (tvs, ty_1)
+        *)
+        let fv_ty = apply_subst fv_ty subst_1 
+        let fv_subst = unify fv_ty ty_1
+
+        let ty_1 = apply_subst ty_1 fv_subst
+        let subst_1 = compose_subst fv_subst subst_1 
+
+        let ty_1, subst_1 = 
+            match tf with
+            | Some tf->
+                let subst_tf = unify ty_1 tf
+                let ty_1 = apply_subst ty_1 subst_tf
+                ty_1, compose_subst subst_tf subst_1
+            | None -> ty_1, subst_1
+
+        let env = apply_subst_in_env env subst_1                            // θ1(Γ)
+        let env = (f, generalization env ty_1)::env                            
+
+        //infer e2
+        let ty_2, subst_2 = typeinfer_expr env e2                           // Γ, (f: σ1) ⊦ e2: τ2 ⊳ θ2
+
+        let subst = compose_subst subst_1 subst_2                           // θ3 = θ2 ∘ θ1
+
+        ty_2, subst
+
+    
     | BinOp (e1, op ,e2)->
 
         //Infer e1 
@@ -306,8 +378,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             | TyInt, TyInt 
             | TyInt, TyFloat 
             | TyFloat, TyInt  
-            | TyFloat, TyFloat 
-            | TyBool, TyBool  -> TyBool, sub_2
+            | TyFloat, TyFloat  -> TyBool, sub_2
             | _ -> type_infer_error "binary comparison operator expects two numeric or boolean operands, but got %s %s %s" (pretty_ty ty_1) op (pretty_ty ty_2)
         |"and" | "or"->
             match ty_1, ty_2 with
@@ -315,7 +386,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             | _ -> type_infer_error "binary logic operator expects two numeric or boolean operands, but got %s %s %s" (pretty_ty ty_1) op (pretty_ty ty_2)
         |_-> type_infer_error "binary operator expects a valid operator, but got %s %s %s" (pretty_expr e1) op (pretty_expr e2)
     | UnOp (op, e)->
-    
+
         //Infer e
         let ty_e, sub_e = typeinfer_expr env e // Γ ⊦ e: τ ⊳ θ
 
@@ -335,7 +406,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
 // type checker
 //
-    
+(*
 let rec typecheck_expr (env : ty env) (e : expr) : ty =
     match e with
     | Lit (LInt _) -> TyInt
@@ -442,3 +513,4 @@ let rec typecheck_expr (env : ty env) (e : expr) : ty =
     | UnOp (op, _) -> unexpected_error "typecheck_expr: unsupported unary operator (%s)" op
 
     | _ -> unexpected_error "typecheck_expr: unsupported expression: %s [AST: %A]" (pretty_expr e) e
+*)

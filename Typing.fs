@@ -8,10 +8,9 @@ module TinyML.Typing
 open Ast
 
 let type_error fmt = throw_formatted TypeError fmt
-
-exception SubstitutionError of string
-
-exception UnifyError of string
+let type_infer_error fmt = throw_formatted TypeInferError fmt
+let unfy_error fmt = throw_formatted UnifyError fmt
+let sub_error fmt = throw_formatted SubstitutionError fmt
 
 //θ
 type subst = (tyvar * ty) list
@@ -51,7 +50,7 @@ let compose_subst (s1 : subst) (s2 : subst) : subst = (*
     s1 |> List.iter(fun (tv1, t1)->
         match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
             | Some (_, t2)-> 
-                if( t1 <> t2 ) then raise (SubstitutionError("Undisjoined set"))
+                if( t1 <> t2 ) then sub_error "Undisjoined set"
             | None-> ())
 
 (*
@@ -114,7 +113,7 @@ let rec unify (t1 : ty) (t2 : ty) : subst =
             tv1 (pretty_ty tv2)
     | TyVar tv1, _->[(tv1,t2)]                                  //U(α; τ)
     | _,TyVar _-> unify t2 t1                                   //U(τ; α)
-    | _, _-> raise(UnifyError("unification error: types '%s' and '%s' are not unifiable")) (pretty_ty t1)(pretty_ty t2)
+    | _, _-> unfy_error "unification error: types '%s' and '%s' are not unifiable" (pretty_ty t1)(pretty_ty t2)
 
 //Definenig an 'a as integer we can define in this way new type vars incrementing fv_num
 //ensuring it's unicity
@@ -280,26 +279,59 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         //Apply the substitutions to the tuple
         let _, subst, ty = List.fold acc_sub (env, [], []) tp
         TyTuple ty, subst
+//  |   LetRec (f, _, e1, e2) ->                //Let rec    
+    | BinOp (e1, op ,e2)->
 
-    (*
-    |   LetRec (f, _, e1, e2) ->                //Let rec
-    |   BinOp (e1, "+", e2) ->                  //BinOp +      
-    |   BinOp (e1, "-", e2) ->                  //BinOp -
-    |   BinOp (e1, "*", e2) ->                  //BinOp *
-    |   BinOp (e1, "/", e2) ->                  //BinOp /    
-    |   BinOp (e1, "%", e2) ->                  //BinOp %
-    |   BinOp (e1, "<", e2) ->                  //BinOp <
-    |   BinOp (e1, "<=", e2) ->                 //BinOp <=    
-    |   BinOp (e1, "==", e2) ->                 //BinOp ==
-    |   BinOp (e1, ">=", e2) ->                 //BinOp >=
-    |   BinOp (e1, ">", e2) ->                  //BinOp > 
-    |   BinOp (e1, "<>", e2) ->                 //BinOp <>
-    |   BinOp (e1, "and", e2) ->                //BinOp and
-    |   BinOp (e1, "or", e2) ->                 //BinOp or    
-    |   UnOp ("not", e) ->                      //UnOp not
-    |   UnOp ("-", e) ->                        //UnOp -
-    |   
-    *)
+        //Infer e1 
+        let ty_1, sub_1 = typeinfer_expr env e1 // Γ ⊦ e1: τ1 ⊳ θ1
+
+        let env = apply_subst_in_env env sub_1  // θ1(Γ)
+
+        //Infer e2
+        let ty_2, sub_2 = typeinfer_expr env e2 // Γ ⊦ e1: τ2 ⊳ θ2
+
+        //Update ty1
+        let ty_1 = apply_subst ty_1 sub_2
+
+        match op with
+        | "+" | "-" | "*" | "/" | "%"->
+            match ty_1, ty_2 with
+            | TyInt, TyInt-> TyInt, sub_2
+            | TyFloat, TyFloat -> TyFloat, sub_2
+            | TyInt, TyFloat
+            | TyFloat , TyInt -> TyFloat, sub_2
+            | _ -> type_infer_error "binary aritmetic operator expects two numeric operands, but got %s %s %s" (pretty_ty ty_1) op (pretty_ty ty_2)
+        | "<" | "<=" | "=" | ">=" | ">" | "<>"-> 
+            match ty_1, ty_2 with
+            | TyInt, TyInt 
+            | TyInt, TyFloat 
+            | TyFloat, TyInt  
+            | TyFloat, TyFloat 
+            | TyBool, TyBool  -> TyBool, sub_2
+            | _ -> type_infer_error "binary comparison operator expects two numeric or boolean operands, but got %s %s %s" (pretty_ty ty_1) op (pretty_ty ty_2)
+        |"and" | "or"->
+            match ty_1, ty_2 with
+            | TyBool, TyBool -> TyBool, sub_2
+            | _ -> type_infer_error "binary logic operator expects two numeric or boolean operands, but got %s %s %s" (pretty_ty ty_1) op (pretty_ty ty_2)
+        |_-> type_infer_error "binary operator expects a valid operator, but got %s %s %s" (pretty_expr e1) op (pretty_expr e2)
+    | UnOp (op, e)->
+    
+        //Infer e
+        let ty_e, sub_e = typeinfer_expr env e // Γ ⊦ e: τ ⊳ θ
+
+        match op with
+        | "-"->
+            match ty_e with
+            | TyFloat -> TyFloat, sub_e
+            | TyInt -> TyInt, sub_e
+            | _ -> type_infer_error "unary operand expects numeric operand, but got %s" (pretty_ty ty_e)
+        |"not"->
+            match ty_e with
+            | TyBool-> TyBool, sub_e
+            | _ -> type_infer_error "unary operand expects boolean operand, but got %s" (pretty_ty ty_e)
+        | _ -> type_infer_error "unary operator not allowed %s" op 
+
+//  | _ -> 
 
 // type checker
 //

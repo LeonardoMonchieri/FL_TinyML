@@ -80,17 +80,23 @@ let rec eval_expr (env: value env) (e: expr) : value =
         eval_expr ((x, v1) :: env) e2
 
     // TODO: test this is ok or fix it
+    //CHECKED
     | LetRec(f, _, e1, e2) ->
         let v1 = eval_expr env e1
-      
         match v1 with
-        //Keep find the closure
         | Closure(venv1, x, e) -> 
-            let rec_clsr = RecClosure(venv1, f, x, e)
-            eval_expr ((f, rec_clsr) :: env) e2
-        //Find the final evaluation of
+            
+            try 
+                //Procede in the recursion until we reach the "final" closure 
+                let rec_clsr = RecClosure(venv1, f, x, e)
+                //Reached the closure evaluate e2 
+                eval_expr ((f, rec_clsr) :: env) e2
+            with
+            | :? System.StackOverflowException -> unexpected_error "eval_expr: can't reach the closure in rec binding: %s" (pretty_value v1)
+
+            
+        //There is no recursion here
         | v->v 
-        | _-> unexpected_error "eval_expr: can't reach the closure in rec binding: %s" (pretty_value v1)
    
     // TODO finish this implementation
     //CHECKED
@@ -149,7 +155,7 @@ and aritm_binop op_int op_float str_op env e1 e2 =
             str_op
             (pretty_value v2)
 
-//Comparing operators ( <, <=, =, >=, >, <> )
+// Comparison operators ( <, <=, =, >=, >, <> )
 and comp_binop op str_op env e1 e2 =
     let v1 = eval_expr env e1
     let v2 = eval_expr env e2

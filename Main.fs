@@ -45,7 +45,7 @@ let main_interpreter filename =
 
 let main_interactive () =
     printfn "entering interactive mode..."
-    let mutable tenv = Typing.init_env_schema
+    let mutable tenv = Typing.init_ty_schema
     let mutable venv = []
     while true do
         trap <| fun () ->

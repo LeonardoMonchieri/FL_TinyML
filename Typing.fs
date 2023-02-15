@@ -17,7 +17,7 @@ type subst = (tyvar * ty) list
 
 // TODO implement this 
 // CHECKED
-// θ(τ) -> τ
+// θ(τ) -> τ'
 let rec apply_subst (t : ty) (s : subst) : ty =
     match t with
     | TyName _ -> t
@@ -34,45 +34,21 @@ let rec apply_subst (t : ty) (s : subst) : ty =
 // θ1∘θ2 -> θ3
 // TODO implement this
 // CHECKED
-let compose_subst (s1 : subst) (s2 : subst) : subst = (*
-    let sDis s = List.fold( fun  (sCom : subst) (tv1, t1)->
-            //Looking if s1 share some tvar with s2
-            match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
-                | Some (_, t2)-> 
-                    //if they have the same type add to the partial composition otherwise rise an exception
-                    if( t1 = t2 ) then (tv1, t2)::sCom
-                    else raise (SubstitutionError("Undisjoined set"))
-                //If there is no match simply add to the accumulator list
-                | None -> (tv1,t1)::sCom) [] s
-    (sDis s1)@s2
-    *)
+
+let compose_subst (s1 : subst) (s2 : subst) : subst = 
 
     s1 |> List.iter(fun (tv1, t1)->
         match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
             | Some (_, t2)-> 
                 if( t1 <> t2 ) then sub_error "Undisjoined set"
             | None-> ())
-
-(*
-    let rec chk_disj s =
-        match s with
-        | []->()
-        | (tv1,t1)::s_tail-> 
-            match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
-                | Some (_, t2)-> 
-                    if( t1 <> t2 ) then raise (SubstitutionError("Undisjoined set"))
-                | None-> ()
-            iter s_tail
-    chk_disj 
-    *)
     s1@s2
         
-        //Esiste controllo il tipo
-        //Non esiste aggiungo
 
 //θ1(σ)-> θ2
 let apply_subst_in_scheme (Forall(tyvars, ty)) subst =
     Forall(tyvars, apply_subst ty subst)
+
 //θ1(Γ)-> θ2
 let apply_subst_in_env env subst =
     List.map(fun (id, schema) -> (id, apply_subst_in_scheme schema subst)) env
@@ -141,48 +117,19 @@ let generalization env ty =
 //Add to the env the x:∀ø.α
 let extend_env (name, ty) env=
     (name, Forall ([], ty)) :: env
-(*
-let gamma0 = [
-    //Integer op
-    ("+", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a + 'a => int->int
-    ("-", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a - 'a => int->int
-    ("*", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a + 'a => int->int
-    ("/", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a - 'a => int->int
-    ("%", TyArrow (TyInt, TyArrow (TyInt, TyInt)))  //'a + 'a => int->int
-    //Flaota op
-    ("+", TyArrow (TyInt, TyArrow (TyFloat, TyFloat)))  //'b + 'b => float->float
-    ("-", TyArrow (TyInt, TyArrow (TyFloat, TyFloat))) 
 
-    
-]
-let binOps = List.fold( fun acc op->[    
+// binary arithmetic operators
+let aritm_binOps = List.fold( fun acc op->[  
     (op, TyArrow (TyInt, TyArrow (TyInt, TyInt)))
     (op, TyArrow (TyFloat, TyArrow (TyFloat, TyFloat)))
     (op, TyArrow (TyInt, TyArrow (TyFloat, TyFloat)))
-    (op, TyArrow (TyFloat, TyArrow (TyFloat, TyInt)))]@acc) [] ["+"; "-"; "*"; "/"; "%"]
-
-*)
+    (op, TyArrow (TyFloat, TyArrow (TyInt, TyFloat)))]@acc) [] ["+"; "-"; "*"; "/"; "%"]
+// binary comparison operators
+let comp_binOps =  List.fold( fun acc op->[  
+    (op, TyArrow (TyInt, TyArrow (TyInt, TyBool)))]@acc) [] ["<"; "<="; "="; ">="; "<>"]
 
 
 let gamma0 = [
-    // binary int aritmetic operators
-    ("+", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
-    ("-", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
-    ("*", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
-    ("/", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
-    ("%", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
-
-    
-    
-
-    // binary comaprison operators
-    ("<", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
-    ("<=", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
-    (">", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
-    (">=", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
-    ("=", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
-    ("<>", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
-
 
     // binary bool operators
     ("and", TyArrow (TyBool, TyArrow(TyBool, TyBool)))
@@ -194,11 +141,13 @@ let gamma0 = [
     ("neg", TyArrow (TyFloat, TyFloat))   
 ]
 
-let init_env_schema = List.map (fun (x, y) -> (x, Forall([], y))) gamma0
+//Build the initial type schema
+let init_ty_schema = List.map (fun (x, y) -> (x, Forall([], y))) gamma0 @aritm_binOps@comp_binOps
 
 
 
 // TODO for exam
+// CHECKED
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     match e with
     |   Lit (LInt _)        -> TyInt, []        //const Int
@@ -212,7 +161,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             | Some (_, ty) -> instantiate ty,[]
             | None  -> type_error "Undefined variable %s" x
 
-    |   Lambda (args_name, t1, body) ->               //Lambda
+    |   Lambda (args_name, t1, body) ->                     //Lambda
             //If present infer t1 or let it a freevar
             let args_ty =       
                 match t1 with 
@@ -230,7 +179,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
            
             TyArrow(args_ty, body_ty), body_subs             //Γ ⊢ λx.e : α-> τ_1; θ_1
 
-    |   App (e1, e2) ->                         //App
+    |   App (e1, e2) ->                                 //App
         //Infer e1
         let e1_ty, e1_subst = typeinfer_expr env e1     // Γ ⊦ e1:τ1 ⊳ θ1 
 
@@ -253,7 +202,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     
         apply_subst fv_ty subst_4, subst_4              //Γ ⊦ e1 e2: τ ⊳ θ4
 
-    |   Let (x, tyo, e1, e2)->                  //Let
+    |   Let (x, tyo, e1, e2)->                              //Let
             //Infer e1 
             let t1, s1 = typeinfer_expr env e1              //Γ ⊦ e1: τ1 ⊳ θ1
             
@@ -267,7 +216,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             
             t2, compose_subst s2 s1                         //Γ ⊦ let x=e1 in e2: τ2 ⊳ θ3 = θ2 ∘ θ1 
     
-    |   IfThenElse (cond, thenBranch, o_elseBranch) ->             //IfThenEls
+    |   IfThenElse (cond, thenBranch, o_elseBranch) ->                  //IfThenEls
          
         //Infer guard type
     
@@ -299,7 +248,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
 
 
-    |   Tuple tp->                              //Tuple
+    |   Tuple tp->                                                  //Tuple
         //Accumulator function to apply the substitution to all the elements inside the tuple
         let acc_sub(env, subst, ty) t =
             
@@ -318,58 +267,58 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let _, subst, ty = List.fold acc_sub (env, [], []) tp
         TyTuple ty, subst
 
-    |   LetRec (f, tf, e1, e2) ->                //Let rec   
+    |   LetRec (f, tf, e1, e2) ->                                           //Let rec   
                                                                             // (f:∀ø.α)
-        let fv_ty = fresh_var() 
+            let fv_ty = fresh_var() 
 
-        let env = extend_env (f, fv_ty) env
+            let env = extend_env (f, fv_ty) env
         
-        //infer e1
-        let ty_1, subst_1 = typeinfer_expr env e1                           // Γ, (f:∀ø.α) ⊦ e1: τ1 ⊳ θ1
-        (*
-        let tvs = Set.toList(freevars_ty ty_1 - freevars_schema_env env)    // σ1 = gen^{θ1,Γ} (τ1)
-        let sch = Forall (tvs, ty_1)
-        *)
-        let fv_ty = apply_subst fv_ty subst_1 
-        let fv_subst = unify fv_ty ty_1
+            //infer e1
+            let ty_1, subst_1 = typeinfer_expr env e1                           // Γ, (f:∀ø.α) ⊦ e1: τ1 ⊳ θ1
+            (*
+            let tvs = Set.toList(freevars_ty ty_1 - freevars_schema_env env)    // σ1 = gen^{θ1,Γ} (τ1)
+            let sch = Forall (tvs, ty_1)
+            *)
+            let fv_ty = apply_subst fv_ty subst_1 
+            let fv_subst = unify fv_ty ty_1
 
-        let ty_1 = apply_subst ty_1 fv_subst
-        let subst_1 = compose_subst fv_subst subst_1 
+            let ty_1 = apply_subst ty_1 fv_subst
+            let subst_1 = compose_subst fv_subst subst_1 
 
-        let ty_1, subst_1 = 
-            match tf with
-            | Some tf->
-                let subst_tf = unify ty_1 tf
-                let ty_1 = apply_subst ty_1 subst_tf
-                ty_1, compose_subst subst_tf subst_1
-            | None -> ty_1, subst_1
+            let ty_1, subst_1 = 
+                match tf with
+                | Some tf->
+                    let subst_tf = unify ty_1 tf
+                    let ty_1 = apply_subst ty_1 subst_tf
+                    ty_1, compose_subst subst_tf subst_1
+                | None -> ty_1, subst_1
 
-        let env = apply_subst_in_env env subst_1                            // θ1(Γ)
-        let env = (f, generalization env ty_1)::env                            
+            let env = apply_subst_in_env env subst_1                            // θ1(Γ)
+            let env = (f, generalization env ty_1)::env                            
 
-        //infer e2
-        let ty_2, subst_2 = typeinfer_expr env e2                           // Γ, (f: σ1) ⊦ e2: τ2 ⊳ θ2
+            //infer e2
+            let ty_2, subst_2 = typeinfer_expr env e2                           // Γ, (f: σ1) ⊦ e2: τ2 ⊳ θ2
 
-        let subst = compose_subst subst_1 subst_2                           // θ3 = θ2 ∘ θ1
+            let subst = compose_subst subst_1 subst_2                           // θ3 = θ2 ∘ θ1
 
-        ty_2, subst
+            ty_2, subst
 
     
-    | BinOp (e1, op ,e2)->
-        //If the op is legal apply it else rise error
-        if List.contains op (List.map (fun (s, _) -> s) init_env_schema) then
+    | BinOp (e1, op ,e2)->                                                  //BinOp
+        //If the op is legal in the environment apply it else rise error
+        if List.contains op (List.map (fun (s, _) -> s) init_ty_schema) then
             typeinfer_expr env (App (App (Var op, e1), e2))
         else
             type_infer_error "binary operator expects a valid operator, but got %s %s %s" (pretty_expr e1) op (pretty_expr e2)
 
-    | UnOp (op, e)->
-        //If the op is legal apply it else rise error
-        if List.contains op (List.map (fun (s, _) -> s) init_env_schema) then
+    | UnOp (op, e)->                                                        //UnOp
+        //If the op is legal in the environment apply it else rise error
+        if List.contains op (List.map (fun (s, _) -> s) init_ty_schema) then
             typeinfer_expr env (App (Var op, e))
         else
            type_infer_error "unary operator not allowed %s" op 
 
-//  | _ -> 
+    | _ -> type_infer_error "Invalid expr to infer %s" (pretty_expr e) 
 
 // type checker
 //

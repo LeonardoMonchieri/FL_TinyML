@@ -317,8 +317,8 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             typeinfer_expr env (App (Var op, e))
         else
            type_infer_error "unary operator not allowed %s" op 
-
-    | _ -> type_infer_error "Invalid expr to infer %s" (pretty_expr e) 
+    | _ -> unexpected_error "typeinfer_expr: unsupported expression: %s [AST: %A]" (pretty_expr e) e
+ 
 
 // type checker
 //

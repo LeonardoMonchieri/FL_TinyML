@@ -82,15 +82,16 @@ let rec eval_expr (env: value env) (e: expr) : value =
     // TODO: test this is ok or fix it
     | LetRec(f, _, e1, e2) ->
         let v1 = eval_expr env e1
+      
         match v1 with
-        //| Closure (venv1, x, e) -> RecClosure (venv1, f, x, e)
-        //We need to procede in the recursion step
-        | Closure(venv1, x, e) ->
+        //Keep find the closure
+        | Closure(venv1, x, e) -> 
             let rec_clsr = RecClosure(venv1, f, x, e)
             eval_expr ((f, rec_clsr) :: env) e2
-        //End of the recursion
-        | v -> v
-     // | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
+        //Find the final evaluation of
+        | v->v 
+        | _-> unexpected_error "eval_expr: can't reach the closure in rec binding: %s" (pretty_value v1)
+   
     // TODO finish this implementation
     //CHECKED
     | BinOp(e1, op, e2) ->

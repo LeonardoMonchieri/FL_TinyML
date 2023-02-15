@@ -9,7 +9,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>TinyML</RootNamespace>
     <AssemblyName>TinyML</AssemblyName>
-    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <UseStandardResourceNames>true</UseStandardResourceNames>
     <WarningsAsErrors>3239;$(WarningsAsErrors)</WarningsAsErrors>
@@ -99,7 +99,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">
-      <HintPath>packages\FSharp.Core.4.7.1\lib\net45\FSharp.Core.dll</HintPath>
+      <HintPath>packages\FSharp.Core.4.7.2\lib\net45\FSharp.Core.dll</HintPath>
     </Reference>
     <Reference Include="FsLexYacc.Runtime">
       <HintPath>packages\FsLexYacc.Runtime.10.0.0\lib\net46\FsLexYacc.Runtime.dll</HintPath>

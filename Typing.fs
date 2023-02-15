@@ -172,6 +172,9 @@ let gamma0 = [
     ("/", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
     ("%", TyArrow (TyInt, TyArrow (TyInt, TyInt)))
 
+    
+    
+
     // binary comaprison operators
     ("<", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
     ("<=", TyArrow (TyInt, TyArrow(TyInt, TyBool)))
@@ -191,7 +194,7 @@ let gamma0 = [
     ("neg", TyArrow (TyFloat, TyFloat))   
 ]
 
-let s_gamma0 = List.map (fun (x, y) -> (x, Forall([], y))) gamma0
+let init_env_schema = List.map (fun (x, y) -> (x, Forall([], y))) gamma0
 
 
 
@@ -353,54 +356,18 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
     
     | BinOp (e1, op ,e2)->
+        //If the op is legal apply it else rise error
+        if List.contains op (List.map (fun (s, _) -> s) init_env_schema) then
+            typeinfer_expr env (App (App (Var op, e1), e2))
+        else
+            type_infer_error "binary operator expects a valid operator, but got %s %s %s" (pretty_expr e1) op (pretty_expr e2)
 
-        //Infer e1 
-        let ty_1, sub_1 = typeinfer_expr env e1 // Γ ⊦ e1: τ1 ⊳ θ1
-
-        let env = apply_subst_in_env env sub_1  // θ1(Γ)
-
-        //Infer e2
-        let ty_2, sub_2 = typeinfer_expr env e2 // Γ ⊦ e1: τ2 ⊳ θ2
-
-        //Update ty1
-        let ty_1 = apply_subst ty_1 sub_2
-
-        match op with
-        | "+" | "-" | "*" | "/" | "%"->
-            match ty_1, ty_2 with
-            | TyInt, TyInt-> TyInt, sub_2
-            | TyFloat, TyFloat -> TyFloat, sub_2
-            | TyInt, TyFloat
-            | TyFloat , TyInt -> TyFloat, sub_2
-            | _ -> type_infer_error "binary aritmetic operator expects two numeric operands, but got %s %s %s" (pretty_ty ty_1) op (pretty_ty ty_2)
-        | "<" | "<=" | "=" | ">=" | ">" | "<>"-> 
-            match ty_1, ty_2 with
-            | TyInt, TyInt 
-            | TyInt, TyFloat 
-            | TyFloat, TyInt  
-            | TyFloat, TyFloat  -> TyBool, sub_2
-            | _ -> type_infer_error "binary comparison operator expects two numeric or boolean operands, but got %s %s %s" (pretty_ty ty_1) op (pretty_ty ty_2)
-        |"and" | "or"->
-            match ty_1, ty_2 with
-            | TyBool, TyBool -> TyBool, sub_2
-            | _ -> type_infer_error "binary logic operator expects two numeric or boolean operands, but got %s %s %s" (pretty_ty ty_1) op (pretty_ty ty_2)
-        |_-> type_infer_error "binary operator expects a valid operator, but got %s %s %s" (pretty_expr e1) op (pretty_expr e2)
     | UnOp (op, e)->
-
-        //Infer e
-        let ty_e, sub_e = typeinfer_expr env e // Γ ⊦ e: τ ⊳ θ
-
-        match op with
-        | "-"->
-            match ty_e with
-            | TyFloat -> TyFloat, sub_e
-            | TyInt -> TyInt, sub_e
-            | _ -> type_infer_error "unary operand expects numeric operand, but got %s" (pretty_ty ty_e)
-        |"not"->
-            match ty_e with
-            | TyBool-> TyBool, sub_e
-            | _ -> type_infer_error "unary operand expects boolean operand, but got %s" (pretty_ty ty_e)
-        | _ -> type_infer_error "unary operator not allowed %s" op 
+        //If the op is legal apply it else rise error
+        if List.contains op (List.map (fun (s, _) -> s) init_env_schema) then
+            typeinfer_expr env (App (Var op, e))
+        else
+           type_infer_error "unary operator not allowed %s" op 
 
 //  | _ -> 
 

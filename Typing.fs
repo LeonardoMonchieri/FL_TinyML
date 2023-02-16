@@ -132,21 +132,22 @@ let aritm_binOps = List.fold( fun acc op->[
 let comp_binOps =  List.fold( fun acc op->[  
     (op, TyArrow (TyInt, TyArrow (TyInt, TyBool)))]@acc) [] ["<"; "<="; "="; ">="; "<>"]
 
-
-let otherOps = [
-
-    // binary bool operators
+// binary boolean operators
+let bool_binOps = [
     ("and", TyArrow (TyBool, TyArrow(TyBool, TyBool)))
-    ("or", TyArrow (TyBool, TyArrow(TyBool, TyBool)))
+    ("or", TyArrow (TyBool, TyArrow(TyBool, TyBool))) 
+]
 
-    // unary operators
+// unary operators
+let unary_op =[
+  
     ("not", TyArrow (TyBool, TyBool))
     ("neg", TyArrow (TyInt, TyInt))
-    ("neg", TyArrow (TyFloat, TyFloat))   
+    ("neg", TyArrow (TyFloat, TyFloat))  
 ]
 
 //Build the initial type schema
-let init_ty_schema = List.map (fun (x, y) -> (x, Forall([], y))) <|otherOps@aritm_binOps@comp_binOps
+let init_ty_schema = List.map (fun (x, y) -> (x, Forall([], y)))<|unary_op@aritm_binOps@comp_binOps@bool_binOps
 
 // TODO for exam
 // CHECKED
@@ -197,12 +198,13 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                                                         // U(τ1; τ2-> α) = θ3
         let fv_ty = fresh_var()
         let app_ty = TyArrow(e2_ty, fv_ty)
+
         let subst_3 = unify e1_ty app_ty
 
         //Compse the new subst
         let subst_4 = compose_subst subst_3 e2_subst    // θ4 = θ3 ∘ θ2 
 
-        apply_subst fv_ty subst_4, subst_4              //Γ ⊦ e1 e2: τ ⊳ θ4
+        apply_subst fv_ty subst_3, subst_4              //Γ ⊦ e1 e2: τ ⊳ θ4
     //Did in class
     |   Let (x, _ , e1, e2)->                              //Let
             //Infer e1 
@@ -295,10 +297,56 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             e2_ty, subst
 
     | BinOp (e1, op ,e2)->                                                  //BinOp
-        typeinfer_expr env (App (App (Var op, e1), e2))  
+        //typeinfer_expr env (App (App (Var op, e1), e2)) 
+        
+        //Infer e1
+        let e1_ty, e1_subst = typeinfer_expr env e1
+
+        let subst = match e1_ty with
+            | TyInt   ->  unify e1_ty TyInt
+            | TyFloat ->  unify e1_ty TyFloat
+            | TyBool  ->  unify e1_ty TyBool
+            | _ -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s" (pretty_ty e1_ty)
+
+        let subst = compose_subst e1_subst subst
+
+        let env = apply_subst_in_env env subst
+
+        //Infer e2
+        let e2_ty, e2_subst = typeinfer_expr env e2
+
+        let subst = match e2_ty with
+            | TyInt   ->  unify e2_ty TyInt
+            | TyFloat ->  unify e2_ty TyFloat
+            | TyBool  ->  unify e2_ty TyBool
+            | _ -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s"(pretty_ty e2_ty)
+
+                
+        let subst = compose_subst subst e2_subst
+        
+
+        let findOp op_name exp1_ty exp2_ty op_n ta =
+                let t1, ta2 = ta
+                let t2, t3 = ta2
+                if (op_name=op_n && t1 = exp1_ty && t2 = exp2_ty) then return true
+                else return false
+             
+        //(op, TyArrow (TyInt, TyArrow (TyInt, TyInt)))
+        let op_ty = match List.tryFind(fun (opName, ta1) -> findOp op e2_ty e1_ty opName ta1 ) <| aritm_binOps@comp_binOps@bool_binOps with
+            | Some (_, ta1) ->
+                let _, ta2 = ta1
+                let _, t3 = ta2
+                t3
+            | _ -> type_infer_error "BinOp expression: unsupported binary operators: %s" op
+       
+            
+        op_ty, subst
+        
 
     | UnOp (op, e)->                                                        //UnOp   
         typeinfer_expr env (App (Var op, e))     
+        
+
     | _ -> unexpected_error "typeinfer_expr: unsupported expression: %s [AST: %A]" (pretty_expr e) e
  
 

@@ -298,7 +298,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             let subst = compose_subst e1_subst e2_subst_2   //θ3 = θ2 ∘ θ1
 
             e2_ty, subst
-    | BinOp (e1, ("+" | "-" | "/" | "%" | "*"  as op), e2) ->
+    | BinOp (e1, ("+" | "-" | "/" | "%" | "*" | "<" | "<=" | ">" | ">=" | "=" | "<>"  as op), e2) ->
         //Infer e1
         let e1_ty, e1_subst = typeinfer_expr env e1
 
@@ -321,14 +321,23 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
                 
         let subst = compose_subst subst e2_subst
-        
-        match e1_ty, e2_ty with
-        | TyInt, TyInt -> TyInt, subst
-        | TyFloat, TyFloat
-        | TyFloat, TyInt
-        | TyInt, TyFloat -> TyFloat, subst
-        | _ -> type_infer_error "BinOp expression: unsupported binary operators: %s" op
 
+        if(List.contains op ["+" | "-" | "/" | "%" | "*"]) then
+            match e1_ty, e2_ty with
+            | TyInt, TyInt -> TyInt, subst
+            | TyFloat, TyFloat
+            | TyFloat, TyInt
+            | TyInt, TyFloat -> TyFloat, subst
+            | _ -> type_infer_error "BinOp expression: unsupported type in binary operators: %s %s %s"(pretty_ty e1_ty) op (pretty_ty e2_ty)
+        if(List.contains op ["<" | "<=" | ">" | ">=" | "=" | "<>"]) then
+            match e1_ty, e2_ty with
+            | TyInt, TyInt
+            | TyFloat, TyFloat
+            | TyFloat, TyInt
+            | TyInt, TyFloat -> TyBool, subst
+            | _ -> type_infer_error "BinOp expression: unsupported binary operators: %s" op
+        type_infer_error "BinOp expression: unsupported binary operators: %s" op
+(*
     | BinOp (e1, ( "<" | "<=" | ">" | ">=" | "=" | "<>" as op), e2) ->
         //Infer e1
         let e1_ty, e1_subst = typeinfer_expr env e1
@@ -359,7 +368,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         | TyFloat, TyInt
         | TyInt, TyFloat -> TyBool, subst
         | _ -> type_infer_error "BinOp expression: unsupported binary operators: %s" op
-
+*)
     | BinOp (e1, ("and" | "or" as op), e2) ->
          //Infer e1
         let e1_ty, e1_subst = typeinfer_expr env e1

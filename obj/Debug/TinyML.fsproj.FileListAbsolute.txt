@@ -26,32 +26,18 @@
 /home/leonardomonchieri/Scrivania/UNIPD/I_I_Semestre/Functional Languages/TinyML/obj/Debug/TinyML.fsproj.CopyComplete
 /home/leonardomonchieri/Scrivania/UNIPD/I_I_Semestre/Functional Languages/TinyML/obj/Debug/TinyML.exe
 /home/leonardomonchieri/Scrivania/UNIPD/I_I_Semestre/Functional Languages/TinyML/obj/Debug/TinyML.pdb
-C:/Users/leona/Source/Repos/FL_TinyML/bin/Debug/TinyML.XML
-C:/Users/leona/Source/Repos/FL_TinyML/obj/Debug/TinyML.exe
-C:/Users/leona/Source/Repos/FL_TinyML/obj/Debug/TinyML.pdb
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/TinyML.exe.config
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/TinyML.exe
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/TinyML.pdb
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/FsLexYacc.Runtime.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/System.ValueTuple.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/FSharp.Core.xml
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/FsLexYacc.Runtime.xml
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/System.ValueTuple.xml
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/cs/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/de/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/es/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/fr/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/it/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/ja/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/ko/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/pl/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/pt-BR/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/ru/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/tr/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/zh-Hans/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/bin/Debug/zh-Hant/FSharp.Core.resources.dll
-C:/Users/leona/source/repos/FL_TinyML/obj/Debug/TinyML.fsproj.AssemblyReference.cache
-C:/Users/leona/source/repos/FL_TinyML/obj/Debug/TinyML.fsproj.SuggestedBindingRedirects.cache
-C:/Users/leona/source/repos/FL_TinyML/obj/Debug/TinyML.exe.config
-C:/Users/leona/source/repos/FL_TinyML/obj/Debug/TinyML.fsproj.CoreCompileInputs.cache
-C:/Users/leona/source/repos/FL_TinyML/obj/Debug/TinyML.fsproj.CopyComplete
+C:\Users\leona\source\repos\FL_TinyML\bin\Debug\TinyML.XML
+C:\Users\leona\source\repos\FL_TinyML\obj\Debug\TinyML.fsproj.AssemblyReference.cache
+C:\Users\leona\source\repos\FL_TinyML\obj\Debug\TinyML.fsproj.SuggestedBindingRedirects.cache
+C:\Users\leona\source\repos\FL_TinyML\obj\Debug\TinyML.exe.config
+C:\Users\leona\source\repos\FL_TinyML\obj\Debug\TinyML.fsproj.CoreCompileInputs.cache
+C:\Users\leona\source\repos\FL_TinyML\obj\Debug\TinyML.exe
+C:\Users\leona\source\repos\FL_TinyML\obj\Debug\TinyML.pdb
+C:\Users\leona\source\repos\FL_TinyML\bin\Debug\TinyML.exe.config
+C:\Users\leona\source\repos\FL_TinyML\bin\Debug\TinyML.exe
+C:\Users\leona\source\repos\FL_TinyML\bin\Debug\TinyML.pdb
+C:\Users\leona\source\repos\FL_TinyML\bin\Debug\FsLexYacc.Runtime.dll
+C:\Users\leona\source\repos\FL_TinyML\bin\Debug\System.ValueTuple.dll
+C:\Users\leona\source\repos\FL_TinyML\bin\Debug\FsLexYacc.Runtime.xml
+C:\Users\leona\source\repos\FL_TinyML\bin\Debug\System.ValueTuple.xml
+C:\Users\leona\source\repos\FL_TinyML\obj\Debug\TinyML.fsproj.CopyComplete

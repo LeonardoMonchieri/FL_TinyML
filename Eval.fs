@@ -85,9 +85,8 @@ let rec eval_expr (env: value env) (e: expr) : value =
         let v1 = eval_expr env e1
         match v1 with
         | Closure(venv1, x, e) -> 
-            
             try 
-                //Procede in the recursion until we reach the "final" closure 
+                //Procede in the recursion until we reach the closure 
                 let rec_clsr = RecClosure(venv1, f, x, e)
                 //Reached the closure evaluate e2 
                 eval_expr ((f, rec_clsr) :: env) e2

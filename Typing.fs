@@ -18,6 +18,7 @@ type subst = (tyvar * ty) list
 // TODO implement this 
 // CHECKED
 
+ //Apply a substitution to a ty
 let rec apply_subst (t : ty) (s : subst) : ty =         // θ(τ) -> τ'
     match t with
     | TyName _ -> t
@@ -35,8 +36,8 @@ let rec apply_subst (t : ty) (s : subst) : ty =         // θ(τ) -> τ'
 // TODO implement this
 // CHECKED
 
+//Composition of substitution
 let compose_subst (s1 : subst) (s2 : subst) : subst =   //θ1∘θ2 -> θ3
-
     s1 |> List.iter(fun (tv1, t1)->
         match List.tryFind(fun(tv2,_)-> tv2 = tv1) s2 with
             | Some (_, t2)-> 
@@ -58,13 +59,13 @@ let apply_subst_in_env env subst = //θ1(Γ)-> θ2
 let rec freevars_ty (t : ty) : tyvar Set =
     match t with
     | TyName _ -> Set.empty
-    | TyArrow (t1, t2) -> Set.union (freevars_ty t1) (freevars_ty t2)
+    | TyArrow (t1, t2) -> (freevars_ty t1) + (freevars_ty t2)
     | TyVar tv -> Set.singleton tv
-    | TyTuple ts -> List.fold (fun set t -> Set.union set (freevars_ty t)) Set.empty ts 
+    | TyTuple ts -> List.fold (fun r t -> r + freevars_ty t) Set.empty ts 
 
 // Include in the schema the freevars
 let freevars_scheme (Forall (tvs, t)) =
-    Set.difference (freevars_ty t) (Set.ofList tvs)
+    (freevars_ty t) - (Set.ofList tvs)
 
 // type inference
 
@@ -89,14 +90,15 @@ let rec unify (t1 : ty) (t2 : ty) : subst =
                                                    (apply_subst y subst)) subst
         List.fold app []<| List.zip tt1 tt2
     | TyVar tv1, tv2 when Set.contains tv1 <| freevars_ty tv2 ->
-        //If the TyVar is a freevars of t2 we found a situation where is required the implementation of inifite derivation tree
+        // If the TyVar tv1 is a freevars of the freevars set of tv_2
+        // we found a situation where is required the implementation of inifite derivation tree
         type_error "Unification error: unifying %d with %s requires infinite types"
             tv1 (pretty_ty tv2)
     | TyVar tv1, _->[(tv1,t2)]                                  //U(α; τ)
-    | _,TyVar _-> unify t2 t1                                   //U(τ; α)
+    | _,TyVar _-> unify t2 t1                                   //U(τ; α) so we can avoid infinite derivation tree
     | _, _-> unfy_error "unification error: types '%s' and '%s' are not unifiable" (pretty_ty t1)(pretty_ty t2)
 
-//Definenig an α as integer we can define new free vars incrementing fv_num ensuring it's unicity
+//Defining an α as integer we can ensure that new free vars is unique incrementing fv_num
 
 let mutable private fv_num = 0
 let fresh_var()=
@@ -112,13 +114,15 @@ let instantiate(Forall(tyvars, ty))=
     apply_subst ty sub
 
 // Generalization
-// Given α make ∀ free(α) . α(free(α)) 
+// Given α of ty make ∀α.τ for all vars not free in the env
+// gen^Γ(τ) = ∀α.τ
 let generalization env ty =
     let free = freevars_ty ty
     let scheme = Set.unionMany <| List.map (freevars_scheme << snd) env
-    Forall (Set.toList <| Set.difference free scheme, ty)
+    Forall (Set.toList <| free-scheme, ty)
 
-// Add to the env the x:∀ø.α
+// Add to the env the schema ∀ø.α for x var
+// x:∀ø.α
 let extend_env (name, ty) env=
     (name, Forall ([], ty)) :: env
 
@@ -143,13 +147,12 @@ let bool_binOps = [
 
 // unary operators
 let unary_op =[
-  
     ("not", TyArrow (TyBool, TyBool))
     ("neg", TyArrow (TyInt, TyInt))
     ("neg", TyArrow (TyFloat, TyFloat))  
 ]
 
-//Build the initial type schema
+//Build the initial type schema 
 let init_ty_schema = List.map (fun (x, y) -> (x, Forall([], y)))<|unary_op@aritm_binOps@comp_binOps@bool_binOps
 
 // TODO for exam
@@ -164,12 +167,12 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     |   Lit LUnit           -> TyUnit, []       //Unit
     |   Var x->                                 //Var
             match List.tryFind( fun(tv,_)-> tv = x ) env with
-                | Some (_, ty) -> instantiate ty,[]
-                | None  -> type_error "Undefined variable %s" x
+                | Some (_, ty) -> instantiate ty,[]                 // τ = inst (σ)
+                | None  -> type_error "Undefined variable %s in the environment" x
 
     |   Lambda (f, t1, e) ->                                //Lambda
-
-            //If present t1 present return it otherwise let it a freevar
+            
+            //If t1 is present return it otherwise make it a freevar
             let t1_ty =       
                 match t1 with 
                     | Some t1 -> t1
@@ -209,25 +212,25 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
         apply_subst fv_ty subst_3, subst_4              //Γ ⊦ e1 e2: τ ⊳ θ4
   
-    |   Let (x, o_t , e1, e2)->                              //Let
+    |   Let (x, o_t , e1, e2)->                             //Let
             //Infer e1 
-            let t1, s1 = typeinfer_expr env e1              //Γ ⊦ e1: τ1 ⊳ θ1
+            let t1, s1 = typeinfer_expr env e1              // Γ ⊦ e1: τ1 ⊳ θ1
             
             let t1, s1 = 
                 match o_t with
                 | None -> 
-                    generalization env t1, s1  //σ1 = gen^{θ1,Γ} (τ1) 
+                    generalization env t1, s1                   // σ1 = gen^{θ1,Γ} (τ1) 
                 | Some o_t ->
-                    let t1_un = unify o_t t1 //Checke the corrispondence between explicite type and type of t1
+                    let t1_un = unify o_t t1 //Checke the corrispondence between explicite type and type infered of t1
                     //Update t1
                     let t1 = apply_subst t1 t1_un
-                    //Generalize  ∀ø.τ1, θ1
-                    Forall ([], t1), compose_subst t1_un s1 
+                    //Generalize 
+                    Forall ([], t1), compose_subst t1_un s1     // ∀ø.τ1, θ1
                       
             //Infer e2 
-            let t2, s2= typeinfer_expr((x, t1) :: env) e2  //θ1(Γ),(x,σ1) ⊦ e2:τ2 ⊳ θ2
+            let t2, s2= typeinfer_expr((x, t1) :: env) e2       // θ1(Γ),(x,σ1) ⊦ e2:τ2 ⊳ θ2
             
-            t2, compose_subst s2 s1                         //Γ ⊦ let x=e1 in e2: τ2 ⊳ θ3 = θ2 ∘ θ1 
+            t2, compose_subst s2 s1                             // Γ ⊦ let x=e1 in e2: τ2 ⊳ θ3 = θ2 ∘ θ1 
   
     |   IfThenElse (cond, thenBranch, o_elseBranch) ->                  //IfThenEls
          
@@ -321,13 +324,13 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         //Infer e1
         let e1_ty, e1_subst = typeinfer_expr env e1         // Γ ⊦ e1: τ1 ⊳ θ1
 
-        let subst = match e1_ty with                        // θ2= U(τ1 : T)
-        | TyInt   
-        | TyVar _ ->  unify e1_ty TyInt 
-        | TyFloat ->  unify e1_ty TyFloat
-        | TyBool  ->  unify e1_ty TyBool
-  
-        |   _     -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s" (pretty_ty e1_ty)
+        let subst = 
+            match e1_ty with                        // θ2= U(τ1 : T)
+            | TyInt   
+            | TyVar _ ->  unify e1_ty TyInt 
+            | TyFloat ->  unify e1_ty TyFloat
+            | TyBool  ->  unify e1_ty TyBool
+            |   _     -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s" (pretty_ty e1_ty)
 
         let subst = compose_subst e1_subst subst            // θ3= θ2 ∘ θ1
 
@@ -336,7 +339,8 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         //Infer e2
         let e2_ty, e2_subst = typeinfer_expr env e2         // Γ ⊦ e2: τ2 ⊳ θ4
 
-        let subst = match e2_ty with                        // θ5= U(τ2 : T)
+        let subst = 
+            match e2_ty with                        // θ5= U(τ2 : T)
             | TyInt   
             | TyVar _ ->  unify e2_ty TyInt
             | TyFloat ->  unify e2_ty TyFloat
@@ -382,11 +386,12 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         
         //Check if the infered type is allowed in the operation of the initial environment
         if(op="-") then
-            let subst = match e_ty with                        // θ2= U(τ : T)
-            | TyInt   
-            | TyVar _ ->  unify e_ty TyInt 
-            | TyFloat ->  unify e_ty TyFloat
-            |   _     -> type_infer_error "UnOp expression: unexpected type inside unary operation: %s" (pretty_ty e_ty)
+            let subst =
+                match e_ty with                        // θ2= U(τ : T)
+                | TyInt   
+                | TyVar _ ->  unify e_ty TyInt 
+                | TyFloat ->  unify e_ty TyFloat
+                |   _     -> type_infer_error "UnOp expression: unexpected type inside unary operation: %s" (pretty_ty e_ty)
 
             let subst = compose_subst e_subst subst             // θ3= θ2 ∘ θ1        
 
@@ -399,10 +404,11 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             e_ty, subst
 
         else if ( op="not") then 
-            let subst = match e_ty with                         // θ2= U(τ : T)                       
-            | TyVar _ 
-            | TyBool ->  unify e_ty TyBool 
-            |   _     -> type_infer_error "UnOp expression: unexpected type inside unary operation: %s" (pretty_ty e_ty)
+            let subst = 
+                match e_ty with                         // θ2= U(τ : T)                       
+                | TyVar _ 
+                | TyBool ->  unify e_ty TyBool 
+                |   _     -> type_infer_error "UnOp expression: unexpected type inside unary operation: %s" (pretty_ty e_ty)
 
             let subst = compose_subst e_subst subst             // θ3= θ2 ∘ θ1     
 

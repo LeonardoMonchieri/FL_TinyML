@@ -208,21 +208,27 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let subst_4 = compose_subst subst_3 e2_subst    // θ4 = θ3 ∘ θ2 
 
         apply_subst fv_ty subst_3, subst_4              //Γ ⊦ e1 e2: τ ⊳ θ4
-    //Did in class
-    |   Let (x, _ , e1, e2)->                              //Let
+  
+    |   Let (x, o_t , e1, e2)->                              //Let
             //Infer e1 
             let t1, s1 = typeinfer_expr env e1              //Γ ⊦ e1: τ1 ⊳ θ1
             
-            //Create the type schema
-                                                            // σ1 = gen^{θ1,Γ} (τ1)
-            let tvs = Set.toList(freevars_ty t1 - freevars_schema_env env)
-            let sch = Forall (tvs, t1)
-            
+            let t1, s1 = 
+                match o_t with
+                | None -> 
+                    generalization env t1, s1  //σ1 = gen^{θ1,Γ} (τ1) 
+                | Some o_t ->
+                    let t1_un = unify o_t t1 //Checke the corrispondence between explicite type and type of t1
+                    //Update t1
+                    let t1 = apply_subst t1 t1_un
+                    //Generalize  ∀ø.τ1, θ1
+                    Forall ([], t1), compose_subst t1_un s1 
+                      
             //Infer e2 
-            let t2, s2= typeinfer_expr((x, sch) :: env) e2  //θ1(Γ),(x,σ1) ⊦ e2:τ2 ⊳ θ2
+            let t2, s2= typeinfer_expr((x, t1) :: env) e2  //θ1(Γ),(x,σ1) ⊦ e2:τ2 ⊳ θ2
             
             t2, compose_subst s2 s1                         //Γ ⊦ let x=e1 in e2: τ2 ⊳ θ3 = θ2 ∘ θ1 
-    
+  
     |   IfThenElse (cond, thenBranch, o_elseBranch) ->                  //IfThenEls
          
         //Infer guard type
@@ -272,7 +278,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let _, subst, ty = List.fold acc_sub (env, [], []) tp
         TyTuple ty, subst
 
-    |   LetRec (f, _, e1, e2) ->                            //Let rec   
+    |   LetRec (f, o_t, e1, e2) ->                            //Let rec   
                                                             // (f:∀ø.α)
             let fv_ty = fresh_var() 
 
@@ -292,21 +298,35 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             let env = apply_subst_in_env env e1_subst       // θ1(Γ)
             let env = (f, generalization env e1_ty)::env    // Γ, (f: σ1) with σ1 = gen^{θ1(Γ)} (τ1)
 
+            // Check the explict type notation if present
+            let e1_ty, e1_subst =
+                match o_t with
+                | Some o_t ->
+                    //Check if the explixit type resepect the inferes type otherwise the unification will rise error
+                    let t_subst = unify e1_ty o_t
+                    //Update e1_ty and e1_subs
+                    let e1_ty = apply_subst e1_ty t_subst
+                    e1_ty, compose_subst t_subst e1_subst
+                
+                | None -> e1_ty, e1_subst
+
             //infer e2
             let e2_ty, e2_subst_2 = typeinfer_expr env e2   // Γ, (f: σ1) ⊦ e2: τ2 ⊳ θ2
 
             let subst = compose_subst e1_subst e2_subst_2   //θ3 = θ2 ∘ θ1
 
             e2_ty, subst
-    | BinOp (e1, op, e2) ->        // Numeric Binop
+    | BinOp (e1, op, e2) ->        // Binop
 
         //Infer e1
         let e1_ty, e1_subst = typeinfer_expr env e1         // Γ ⊦ e1: τ1 ⊳ θ1
 
         let subst = match e1_ty with                        // θ2= U(τ1 : T)
-        | TyInt   ->  unify e1_ty TyInt
+        | TyInt   
+        | TyVar _ ->  unify e1_ty TyInt 
         | TyFloat ->  unify e1_ty TyFloat
         | TyBool  ->  unify e1_ty TyBool
+  
         |   _     -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s" (pretty_ty e1_ty)
 
         let subst = compose_subst e1_subst subst            // θ3= θ2 ∘ θ1
@@ -317,7 +337,8 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let e2_ty, e2_subst = typeinfer_expr env e2         // Γ ⊦ e2: τ2 ⊳ θ4
 
         let subst = match e2_ty with                        // θ5= U(τ2 : T)
-            | TyInt   ->  unify e2_ty TyInt
+            | TyInt   
+            | TyVar _ ->  unify e2_ty TyInt
             | TyFloat ->  unify e2_ty TyFloat
             | TyBool  ->  unify e2_ty TyBool
             | _ -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s"(pretty_ty e2_ty)
@@ -325,37 +346,76 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 
         let subst = compose_subst subst e2_subst            // θ6= θ5 ∘ θ4 
 
-        //Infer the type of the operation based on the initial inference rule of the environment
+        //Infer the type of the operation based on the inference rule of the initial environment
         if(List.contains op ["+"; "-"; "/"; "%"; "*"]) then
             match e1_ty, e2_ty with
-            | TyInt, TyInt -> TyInt, subst
+            | TyInt, TyInt
+            | TyInt, TyVar _
+            | TyVar _, TyInt -> TyInt, subst
             | TyFloat, TyFloat
             | TyFloat, TyInt
-            | TyInt, TyFloat -> TyFloat, subst
+            | TyInt, TyFloat
+            | TyFloat, TyVar _
+            | TyVar _, TyFloat -> TyFloat, subst
             | _ -> type_infer_error "BinOp expression: unsupported type in binary arithmetics operation, expecting numerics but got: %s %s %s"(pretty_ty e1_ty) op (pretty_ty e2_ty)
         else if(List.contains op ["<"; "<="; ">"; ">="; "="; "<>"]) then
             match e1_ty, e2_ty with
             | TyInt, TyInt
+            | TyInt, TyVar _
+            | TyVar _, TyInt
             | TyFloat, TyFloat
             | TyFloat, TyInt
-            | TyInt, TyFloat -> TyBool, subst
+            | TyInt, TyFloat
+            | TyFloat, TyVar _
+            | TyVar _, TyFloat -> TyBool, subst
             | _ -> type_infer_error "BinOp expression: unsupported type in binary comparison operation, expecting numerics but got: %s %s %s"(pretty_ty e1_ty) op (pretty_ty e2_ty)
          else if(List.contains op ["and"; "or"]) then
             match e1_ty, e2_ty with
             | TyBool, TyBool -> TyBool, subst
             | _ -> type_infer_error "BinOp expression: unsupported type in binary boolean operation, expecting booleans but got: %s %s %s"(pretty_ty e1_ty) op (pretty_ty e2_ty)
-        else type_infer_error "BinOp expression: unsupported binary operators: %s" op
+        else 
+            type_infer_error "BinOp expression: unsupported binary operators: %s" op
+
     | UnOp (op, e)->                                                        // UnOp   
         //Infer the e 
-        let e_ty, e_subst = typeinfer_expr env e                            // Γ ⊦ e: τ ⊳ θ
+        let e_ty, e_subst = typeinfer_expr env e                            // Γ ⊦ e: τ ⊳ θ1
         
-        //Check if the infer operation is allowed in the initial env
-        if ((not(e_ty=TyInt || e_ty=TyFloat) && op="-")) then type_infer_error "UnOp expression: unsupported unary operand, expecting numeric got: %s" (pretty_ty e_ty)
-        if (not(e_ty=TyBool && op="not")) then type_infer_error "UnOp expression: unsupported unary operand, expecting boolean got: %s" (pretty_ty e_ty)
+        //Check if the infered type is allowed in the operation of the initial environment
+        if(op="-") then
+            let subst = match e_ty with                        // θ2= U(τ : T)
+            | TyInt   
+            | TyVar _ ->  unify e_ty TyInt 
+            | TyFloat ->  unify e_ty TyFloat
+            |   _     -> type_infer_error "UnOp expression: unexpected type inside unary operation: %s" (pretty_ty e_ty)
 
-        e_ty, e_subst
-        
+            let subst = compose_subst e_subst subst             // θ3= θ2 ∘ θ1        
 
+            match e_ty with
+            | TyInt 
+            | TyFloat
+            | TyVar _ -> ()
+            | _ -> type_infer_error "UnOp expression: unsupported unary operand, expecting numeric got: %s" (pretty_ty e_ty)
+            
+            e_ty, subst
+
+        else if ( op="not") then 
+            let subst = match e_ty with                         // θ2= U(τ : T)                       
+            | TyVar _ 
+            | TyBool ->  unify e_ty TyBool 
+            |   _     -> type_infer_error "UnOp expression: unexpected type inside unary operation: %s" (pretty_ty e_ty)
+
+            let subst = compose_subst e_subst subst             // θ3= θ2 ∘ θ1     
+
+            match e_ty with
+                | TyBool
+                | TyVar _ -> ()
+                | _ -> type_infer_error "UnOp expression: unsupported unary operand, expecting boolean got: %s" (pretty_ty e_ty)
+            
+            e_ty, subst
+        else 
+            type_infer_error "UnOp expression: unsupported unary operators: %s" op
+      
+      
     | _ -> unexpected_error "typeinfer_expr: unsupported expression: %s [AST: %A]" (pretty_expr e) e
  
 

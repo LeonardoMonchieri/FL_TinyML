@@ -297,8 +297,8 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             e2_ty, subst
 
     | BinOp (e1, op ,e2)->                                                  //BinOp
-        //typeinfer_expr env (App (App (Var op, e1), e2)) 
-        
+        typeinfer_expr env (App (App (Var op, e1), e2)) 
+      (*
         //Infer e1
         let e1_ty, e1_subst = typeinfer_expr env e1
 
@@ -340,11 +340,15 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             | _ -> type_infer_error "BinOp expression: unsupported binary operators: %s" op
        
             
-        op_ty, subst
-        
+        op_ty, subst*)
 
     | UnOp (op, e)->                                                        //UnOp   
-        typeinfer_expr env (App (Var op, e))     
+        let e_ty, e_subst = typeinfer_expr env e
+        
+        if ((not(e_ty=TyInt || e_ty=TyFloat) && op="-")) then type_infer_error "UnOp expression: unsupported unary operand, expecting numeric got: %s" (pretty_ty e_ty)
+        if (not(e_ty=TyBool && op="not")) then type_infer_error "UnOp expression: unsupported unary operand, expecting boolean got: %s" (pretty_ty e_ty)
+
+        e_ty, e_subst
         
 
     | _ -> unexpected_error "typeinfer_expr: unsupported expression: %s [AST: %A]" (pretty_expr e) e

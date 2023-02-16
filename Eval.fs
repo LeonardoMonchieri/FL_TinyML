@@ -109,12 +109,12 @@ let rec eval_expr (env: value env) (e: expr) : value =
         | "/" -> aritm_binop (/) (/) "/" env e1 e2
         | "%" -> aritm_binop (%) (%) "/" env e1 e2
         //Comparing operator
-        | ">" -> comp_binop (>) ">" env e1 e2
-        | ">=" -> comp_binop (>=) "<=" env e1 e2
-        | "=" -> comp_binop (=) "==" env e1 e2
-        | "<=" -> comp_binop (<=) "<=" env e1 e2
-        | "<" -> comp_binop (<) "<" env e1 e2
-        | "<>" -> comp_binop (<>) "<>" env e1 e2
+        | ">" -> comp_binop (>) (>) ">" env e1 e2
+        | ">=" -> comp_binop (>=) (>) "<=" env e1 e2
+        | "=" -> comp_binop (=) (=) "==" env e1 e2
+        | "<=" -> comp_binop (<=) (<=) "<=" env e1 e2
+        | "<" -> comp_binop (<) (<) "<" env e1 e2
+        | "<>" -> comp_binop (<>) (<>) "<>" env e1 e2
         //Boolean operator
         | "and" -> bool_binop (&&) "and" env e1 e2
         | "or" -> bool_binop (||) "or" env e1 e2
@@ -156,12 +156,15 @@ and aritm_binop op_int op_float str_op env e1 e2 =
             (pretty_value v2)
 
 // Comparison operators ( <, <=, =, >=, >, <> )
-and comp_binop op str_op env e1 e2 =
+and comp_binop op_int op_float str_op env e1 e2 =
     let v1 = eval_expr env e1
     let v2 = eval_expr env e2
 
     match v1, v2 with
-    | VInt x, VInt y -> VBool(op x y)
+    | VInt x, VInt y -> VBool(op_int x y)
+    | VFloat x, VFloat y -> VBool(op_float x y)
+    | VInt x, VFloat y -> VBool(op_float (float x) y)
+    | VFloat x, VInt y -> VBool(op_float x (float y))
     | _ ->
         unexpected_error
             "eval_expr: illegal operands in binary comparison operator: %s %s %s"

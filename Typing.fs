@@ -130,7 +130,10 @@ let aritm_binOps = List.fold( fun acc op->[
     (op, TyArrow (TyFloat, TyArrow (TyInt, TyFloat)))]@acc) [] ["+"; "-"; "*"; "/"; "%"]
 // binary comparison operators
 let comp_binOps =  List.fold( fun acc op->[  
-    (op, TyArrow (TyInt, TyArrow (TyInt, TyBool)))]@acc) [] ["<"; "<="; "="; ">="; "<>"]
+    (op, TyArrow (TyInt, TyArrow (TyInt, TyBool)))
+    (op, TyArrow (TyFloat, TyArrow (TyFloat, TyBool)))
+    (op, TyArrow (TyInt, TyArrow (TyFloat, TyBool)))
+    (op, TyArrow (TyFloat, TyArrow (TyInt, TyBool)))]@acc) [] ["<"; "<="; "="; ">="; "<>"]
 
 // binary boolean operators
 let bool_binOps = [
@@ -295,18 +298,14 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             let subst = compose_subst e1_subst e2_subst_2   //θ3 = θ2 ∘ θ1
 
             e2_ty, subst
-
-    | BinOp (e1, op ,e2)->                                                  //BinOp
-        typeinfer_expr env (App (App (Var op, e1), e2)) 
-      (*
+    | BinOp (e1, ("+" | "-" | "/" | "%" | "*"  as op), e2) ->
         //Infer e1
         let e1_ty, e1_subst = typeinfer_expr env e1
 
         let subst = match e1_ty with
-            | TyInt   ->  unify e1_ty TyInt
-            | TyFloat ->  unify e1_ty TyFloat
-            | TyBool  ->  unify e1_ty TyBool
-            | _ -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s" (pretty_ty e1_ty)
+        | TyInt   ->  unify e1_ty TyInt
+        | TyFloat ->  unify e1_ty TyFloat
+        |   _     -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s" (pretty_ty e1_ty)
 
         let subst = compose_subst e1_subst subst
 
@@ -318,29 +317,77 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let subst = match e2_ty with
             | TyInt   ->  unify e2_ty TyInt
             | TyFloat ->  unify e2_ty TyFloat
-            | TyBool  ->  unify e2_ty TyBool
             | _ -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s"(pretty_ty e2_ty)
 
                 
         let subst = compose_subst subst e2_subst
         
+        match e1_ty, e2_ty with
+        | TyInt, TyInt -> TyInt, subst
+        | TyFloat, TyFloat
+        | TyFloat, TyInt
+        | TyInt, TyFloat -> TyFloat, subst
+        | _ -> type_infer_error "BinOp expression: unsupported binary operators: %s" op
 
-        let findOp op_name exp1_ty exp2_ty op_n ta =
-                let t1, ta2 = ta
-                let t2, t3 = ta2
-                if (op_name=op_n && t1 = exp1_ty && t2 = exp2_ty) then return true
-                else return false
-             
-        //(op, TyArrow (TyInt, TyArrow (TyInt, TyInt)))
-        let op_ty = match List.tryFind(fun (opName, ta1) -> findOp op e2_ty e1_ty opName ta1 ) <| aritm_binOps@comp_binOps@bool_binOps with
-            | Some (_, ta1) ->
-                let _, ta2 = ta1
-                let _, t3 = ta2
-                t3
-            | _ -> type_infer_error "BinOp expression: unsupported binary operators: %s" op
-       
-            
-        op_ty, subst*)
+    | BinOp (e1, ( "<" | "<=" | ">" | ">=" | "=" | "<>" as op), e2) ->
+        //Infer e1
+        let e1_ty, e1_subst = typeinfer_expr env e1
+
+        let subst = match e1_ty with
+        | TyInt   ->  unify e1_ty TyInt
+        | TyFloat ->  unify e1_ty TyFloat
+        |   _     -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s" (pretty_ty e1_ty)
+
+        let subst = compose_subst e1_subst subst
+
+        let env = apply_subst_in_env env subst
+
+        //Infer e2
+        let e2_ty, e2_subst = typeinfer_expr env e2
+
+        let subst = match e2_ty with
+            | TyInt   ->  unify e2_ty TyInt
+            | TyFloat ->  unify e2_ty TyFloat
+            | _ -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s"(pretty_ty e2_ty)
+
+                
+        let subst = compose_subst subst e2_subst
+
+        match e1_ty, e2_ty with
+        | TyInt, TyInt
+        | TyFloat, TyFloat
+        | TyFloat, TyInt
+        | TyInt, TyFloat -> TyBool, subst
+        | _ -> type_infer_error "BinOp expression: unsupported binary operators: %s" op
+
+    | BinOp (e1, ("and" | "or" as op), e2) ->
+         //Infer e1
+        let e1_ty, e1_subst = typeinfer_expr env e1
+
+        let subst = match e1_ty with
+        | TyBool   ->  unify e1_ty TyBool
+        |   _     -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s" (pretty_ty e1_ty)
+
+        let subst = compose_subst e1_subst subst
+
+        let env = apply_subst_in_env env subst
+
+        //Infer e2
+        let e2_ty, e2_subst = typeinfer_expr env e2
+
+        let subst = match e2_ty with
+            | TyBool   ->  unify e2_ty TyBool
+            | _ -> type_infer_error "BinOp expression: unexpected type inside binary operation: %s"(pretty_ty e2_ty)
+
+                
+        let subst = compose_subst subst e2_subst
+
+        match e1_ty, e2_ty with
+        | TyBool, TyBool -> TyBool, subst
+        | _ ->  type_infer_error "BinOp expression: unexpected type inside binary operation: %s"(pretty_ty e2_ty)
+    
+    | BinOp (_, op, _) -> unexpected_error "unsupported binary operator (%s)" op
+   
 
     | UnOp (op, e)->                                                        //UnOp   
         let e_ty, e_subst = typeinfer_expr env e

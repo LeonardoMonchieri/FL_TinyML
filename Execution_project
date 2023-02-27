@@ -1,4 +1,0 @@
-msbuild 	->to build the prj
-mono bin/Debug/TinyML.exe 	->to go to the foler where the Exe is build and execute it
-
-

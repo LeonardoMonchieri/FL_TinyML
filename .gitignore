@@ -1,0 +1,9 @@
+.idea
+bin/
+obj/
+packages/
+*.output
+Lexer.fs
+Parser.fs
+Parser.fsi
+*.user
